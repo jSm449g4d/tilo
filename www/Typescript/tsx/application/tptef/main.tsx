@@ -13,6 +13,7 @@ export const AppMain = () => {
     const token = useAppSelector((state) => state.account.token)
     const roomKey = useAppSelector((state) => state.account.roomKey)
     const tableStatus = useAppSelector((state) => state.tptef.tableStatus)
+        const reloadFlag = useAppSelector((state) => state.tptef.reloadFlag)
     const dispatch = useAppDispatch()
     const xhrTimeout = 3000
 
@@ -24,17 +25,16 @@ export const AppMain = () => {
 
     useEffect(() => {
         if (tableStatus == "RTable") searchRoom()
-    }, [userId])
+    }, [userId,reloadFlag])
     useEffect(() => {
         AppDispatch(tptefStartTable({ "tableStatus": "RTable" }))
         setTmpRoomKey(""); setTmpRoom("")
     }, [])
 
-
     const stringForSend = (_additionalDict: {} = {}) => {
         const _sendDict = Object.assign(
             {
-                "token": token, "user": user, roomKey: roomKey
+                "token": token, "text": "", "user": user, roomid: "", roomKey: roomKey
             }, _additionalDict)
         return (JSON.stringify(_sendDict))
     }

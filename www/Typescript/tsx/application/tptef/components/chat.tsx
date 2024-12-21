@@ -42,13 +42,13 @@ export const CTable = () => {
     const stringForSend = (_additionalDict: {} = {}) => {
         const _sendDict = Object.assign(
             {
-                "token": token, "user": user,
+                "token": token, "text": tmpText, "user": user, roomid: room["id"], roomKey: roomKey
             }, _additionalDict)
         return (JSON.stringify(_sendDict))
     }
 
     // fetchAPI
-    const fetchChat = (_roomid = room["id"], _roomKey = roomKey) => {
+    const fetchChat = () => {
         const sortSetContents = (_contents: any = []) => {
             const _sortContents = (a: any, b: any) => { return a["timestamp"] - b["timestamp"] }
             setContents(_contents.sort(_sortContents))
@@ -56,7 +56,7 @@ export const CTable = () => {
         const headers = new Headers();
         const formData = new FormData();
         formData.append("info", stringForSend())
-        formData.append("fetch", JSON.stringify({ "roomid": _roomid, "roomKey": _roomKey }))
+        formData.append("fetch", JSON.stringify({}))
         const request = new Request("/tptef/main.py", {
             method: 'POST',
             headers: headers,

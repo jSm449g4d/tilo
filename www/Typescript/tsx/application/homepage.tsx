@@ -31,7 +31,7 @@ export const AppMain = () => {
                     >コンテンツ一覧</h4>
                     <div className="col-sm-6 col-md-4 p-1 fadein-3">
                         <div className="btn-col" style={{ background: "rgba(255,255,255,0.6)" }}>
-                            <a className="a-nolink" href='https://github.com/jSm449g4d/summerhackathon_vol2' >
+                            <a className="a-nolink" href='https://sumhck-tlnesjcoqq-an.a.run.app' >
                                 <div className="d-flex flex-column" style={{ height: "380px" }}>
                                     <h5>Flask通信</h5>
                                     <div className="d-flex flex-column flex-grow-1">
