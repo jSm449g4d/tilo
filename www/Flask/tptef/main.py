@@ -92,14 +92,12 @@ def show(request):
                 pyJWT_pass,
                 algorithm="HS256",
             )
+        roomKey_hash = _dataDict["roomKey"]
+        if roomKey_hash not in ["", "0"]:
+            roomKey_hash = hashlib.sha256(_dataDict["roomKey"].encode()).hexdigest()
 
         if "fetch" in request.form:
             _dataDict.update(json.loads(request.form["fetch"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
@@ -114,7 +112,7 @@ def show(request):
                         ensure_ascii=False,
                     )
                 if _room["userid"] != user_id:
-                    if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
+                    if _room["passhash"] != "" and _room["passhash"] != roomKey_hash:
                         return json.dumps(
                             {"message": "wrongPass", "text": "アクセス拒否"},
                             ensure_ascii=False,
@@ -143,11 +141,6 @@ def show(request):
 
         if "remark" in request.form:
             _dataDict.update(json.loads(request.form["remark"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
             if token == "":
                 return json.dumps(
                     {"message": "tokenNothing", "text": "トークン未提出"},
@@ -165,7 +158,7 @@ def show(request):
                     return json.dumps(
                         {"message": "notExist", "text": "存在不明"}, ensure_ascii=False
                     )
-                if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
+                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash :
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
@@ -192,11 +185,6 @@ def show(request):
             )
 
         if "upload" in request.files:
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
             if token == "":
                 return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
             with closing(sqlite3.connect(db_dir)) as conn:
@@ -211,7 +199,7 @@ def show(request):
                     return json.dumps(
                         {"message": "notExist", "text": "存在不明"}, ensure_ascii=False
                     )
-                if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
+                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash :
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
@@ -248,11 +236,6 @@ def show(request):
 
         if "download" in request.form:
             _dataDict.update(json.loads(request.form["download"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
@@ -266,7 +249,7 @@ def show(request):
                         {"message": "notExist", "text": "ファイルが不明"},
                         ensure_ascii=False,
                     )
-                if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
+                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash :
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
@@ -291,11 +274,6 @@ def show(request):
 
         if "delete" in request.form:
             _dataDict.update(json.loads(request.form["delete"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
             if token == "":
                 return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
             with closing(sqlite3.connect(db_dir)) as conn:
@@ -311,7 +289,7 @@ def show(request):
                         {"message": "notExist", "text": "発言が不明"},
                         ensure_ascii=False,
                     )
-                if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
+                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash :
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
@@ -337,11 +315,6 @@ def show(request):
 
         if "search" in request.form:
             _dataDict.update(json.loads(request.form["search"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
@@ -365,11 +338,6 @@ def show(request):
         if "create" in request.form:
             _dataDict.update(json.loads(request.form["create"]))
             _room_name = safe_string(_dataDict["room"], _anti_directory_traversal=False)
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
             if token == "":
                 return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
             with closing(sqlite3.connect(db_dir)) as conn:
@@ -389,7 +357,7 @@ def show(request):
                         _dataDict["user"],
                         user_id,
                         _room_name,
-                        _roompasshash,
+                        roomKey_hash,
                         int(time.time()),
                     ],
                 )
@@ -411,11 +379,6 @@ def show(request):
 
         if "destroy" in request.form:
             _dataDict.update(json.loads(request.form["destroy"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
             if token == "":
                 return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
             with closing(sqlite3.connect(db_dir)) as conn:
