@@ -82,19 +82,21 @@ def show(request):
         token = ""
         user_id = ""
         encoded_new_token = token
-        if _dataDict["token"] != "":
-            token = jwt.decode(_dataDict["token"], pyJWT_pass, algorithms=["HS256"])
-            if token["timestamp"] + pyJWT_timeout < int(time.time()):
-                return json.dumps({"message": "tokenTimeout"}, ensure_ascii=False)
-            user_id = token["id"]
-            encoded_new_token = jwt.encode(
-                {"id": user_id, "timestamp": int(time.time())},
-                pyJWT_pass,
-                algorithm="HS256",
-            )
-        roomKey_hash = _dataDict["roomKey"]
-        if roomKey_hash not in ["", "0"]:
-            roomKey_hash = hashlib.sha256(_dataDict["roomKey"].encode()).hexdigest()
+        if "token" in _dataDict:
+            if _dataDict["token"] != "":
+                token = jwt.decode(_dataDict["token"], pyJWT_pass, algorithms=["HS256"])
+                if token["timestamp"] + pyJWT_timeout < int(time.time()):
+                    return json.dumps({"message": "tokenTimeout"}, ensure_ascii=False)
+                user_id = token["id"]
+                encoded_new_token = jwt.encode(
+                    {"id": user_id, "timestamp": int(time.time())},
+                    pyJWT_pass,
+                    algorithm="HS256",
+                )
+        roomKey_hash = ""
+        if "roomKey" in _dataDict:
+            if roomKey_hash not in ["", "0"]:
+                roomKey_hash = hashlib.sha256(_dataDict["roomKey"].encode()).hexdigest()
 
         if "fetch" in request.form:
             _dataDict.update(json.loads(request.form["fetch"]))
@@ -158,7 +160,7 @@ def show(request):
                     return json.dumps(
                         {"message": "notExist", "text": "存在不明"}, ensure_ascii=False
                     )
-                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash :
+                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
@@ -199,7 +201,7 @@ def show(request):
                     return json.dumps(
                         {"message": "notExist", "text": "存在不明"}, ensure_ascii=False
                     )
-                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash :
+                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
@@ -249,7 +251,7 @@ def show(request):
                         {"message": "notExist", "text": "ファイルが不明"},
                         ensure_ascii=False,
                     )
-                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash :
+                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
@@ -289,7 +291,7 @@ def show(request):
                         {"message": "notExist", "text": "発言が不明"},
                         ensure_ascii=False,
                     )
-                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash :
+                if _room["passhash"] != "" and _room["passhash"] != roomKey_hash:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
