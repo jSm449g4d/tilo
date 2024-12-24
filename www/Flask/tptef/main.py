@@ -103,7 +103,6 @@ def show(request):
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
-                # duplication and roomKey check
                 cur.execute(
                     "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
                 )
@@ -151,7 +150,6 @@ def show(request):
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
-                # duplication and roomKey check
                 cur.execute(
                     "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
                 )
@@ -192,7 +190,6 @@ def show(request):
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
-                # duplication and roomKey check
                 cur.execute(
                     "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
                 )
@@ -241,7 +238,6 @@ def show(request):
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
-                # duplication and roomKey check
                 cur.execute(
                     "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
                 )
@@ -281,7 +277,6 @@ def show(request):
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
-                # duplication and roomKey check
                 cur.execute(
                     "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
                 )
@@ -386,7 +381,6 @@ def show(request):
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
-                # check duplication
                 cur.execute(
                     "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
                 )
