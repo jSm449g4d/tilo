@@ -71,6 +71,9 @@ def safe_string(_s, _max=500, _anti_directory_traversal=True):
     return _s[:_max]
 
 
+RECORD_RETURN_MAX = 100
+
+
 def show(request):
 
     if request.method == "GET":
@@ -312,10 +315,18 @@ def show(request):
 
         if "search" in request.form:
             _dataDict.update(json.loads(request.form["search"]))
+            _material_offset = 0
+            if "offset" in _dataDict:
+                _material_offset = int(_dataDict["offset"])
             with closing(sqlite3.connect(db_dir)) as conn:
                 conn.row_factory = sqlite3.Row
                 cur = conn.cursor()
-                cur.execute("SELECT * FROM tptef_room")
+                cur.execute(
+                    "SELECT * FROM tptef_room"
+                    "SELECT * FROM tptef_room LIMIT ? OFFSET ? ;",
+                    RECORD_RETURN_MAX,
+                    RECORD_RETURN_MAX * _material_offset,
+                )
                 _rooms = [
                     {key: value for key, value in dict(result).items()}
                     for result in cur.fetchall()
