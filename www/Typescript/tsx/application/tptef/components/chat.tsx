@@ -6,8 +6,6 @@ import { accountSetState, tptefSetState, tptefStartTable } from '../../../compon
 import { useAppSelector, useAppDispatch } from '../../../components/store'
 import "../../../stylecheets/style.sass";
 
-
-
 export const CTable = () => {
     const [tmpText, setTmpText] = useState("")
     const [tmpAttachment, setTmpAttachment] = useState(null)
