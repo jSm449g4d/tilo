@@ -954,7 +954,7 @@ export const MTable = () => {
             _tmpRecord.push(
                 <tr>
                     <td>{_button}</td>
-                    <td>未使用の素材です</td>
+                    <td>未使用の素材</td>
                 </tr>)
             continue
         }
