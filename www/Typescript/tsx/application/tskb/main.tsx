@@ -20,7 +20,6 @@ export const AppMain = () => {
     useEffect(() => {
         AppDispatch(startTable({ "tableStatus": "CTable" }))
     }, [])
-    //<CTable/> 
     return (
         <div style={{ overflow: "hidden" }}>
             {tableStatus == "CTable" ?
