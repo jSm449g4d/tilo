@@ -486,7 +486,6 @@ export const AppMain = () => {
                                     <button type="button" className="btn btn-outline-primary" data-bs-dismiss="modal"
                                         onClick={
                                             () => {
-                                                // roomKey cannot be updated in time
                                                 dispatch(accountSetState({ roomKey: tmpRoomKey }))
                                                 fetchChat(Number(tmpTargetId), tmpRoomKey)
                                             }}>
