@@ -100,7 +100,6 @@ export const CMTable = () => {
         formData.append("design", JSON.stringify(Object.assign({
             "material": tmpMaterial
         }),
-
         ))
         const request = new Request("/tskb/main.py", {
             method: 'POST',
