@@ -2,7 +2,6 @@ import React from 'react';
 import "../stylecheets/style.sass";
 
 const bgImage: any = {
-    //backgroundColor: "lavender",
     backgroundImage: "url(/static/img/aircraft-2795557_1280.jpg)",
     backgroundSize: "cover",
     backgroundAttachment: "fixed",
