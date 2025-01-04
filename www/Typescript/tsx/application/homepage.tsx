@@ -7,6 +7,7 @@ const bgImage: any = {
     backgroundAttachment: "fixed",
 }
 
+
 export const AppMain = () => {
     // renders
     const titleLogo = () => {
