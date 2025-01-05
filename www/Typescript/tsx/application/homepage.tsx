@@ -8,6 +8,7 @@ const bgImage: any = {
 }
 
 
+
 export const AppMain = () => {
     // renders
     const titleLogo = () => {
