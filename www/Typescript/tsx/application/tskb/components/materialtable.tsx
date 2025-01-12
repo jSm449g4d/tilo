@@ -1013,6 +1013,7 @@ export const MTable = () => {
         )
     }
 
+    
     return (
         <div className="p-1" style={{
             background: "linear-gradient(45deg,rgba(60,160,250,0.2), rgba(60,60,60,0.0))"
