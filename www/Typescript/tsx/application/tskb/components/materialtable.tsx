@@ -1030,4 +1030,3 @@ export const MTable = () => {
             {bottomForm()}
         </div>)
 }
-
