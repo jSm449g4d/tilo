@@ -315,6 +315,7 @@ export const AppMain = () => {
 };
 
 
+
 // titleLogo
 export const titleLogo = () => {
     return (<h2 className="rotxin-2" style={{ fontFamily: "Impact", color: "black" }}>
