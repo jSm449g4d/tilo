@@ -534,4 +534,3 @@ export const EMTable = () => {
             </div>
         </div>)
 }
-
