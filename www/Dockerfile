@@ -1,5 +1,5 @@
 
-FROM python:3.13
+FROM debian:forky-slim
 
 # Init
 ENV APP /var/www
@@ -9,24 +9,23 @@ RUN apt update -q;apt upgrade -yq
 
 # Javascript
 WORKDIR $APP/html/static
-RUN apt install npm -yq
-RUN npm install -g n
-RUN n latest
+RUN apt install nodejs npm -yq
 RUN npm install -g npm
 RUN npm install
 
 # Typescript
 WORKDIR $APP/Typescript
 # Webpack
-RUN npm install
 RUN npx webpack
 
 # Python3
 WORKDIR $APP
-RUN apt install gcc python3-pip -yq
-RUN pip3 install -U pip
-RUN pip3 install -U -r requirements.txt
+RUN apt install gcc python3-pip python3-venv -yq
+RUN python3 -m venv .venv
+# RUN . .venv/bin/activate
+RUN ./.venv/bin/pip install -U pip
+RUN ./.venv/bin/pip install -Ur requirements.txt
 
 # Hosting
 WORKDIR $APP
-CMD bash -c "waitress-serve --host=0.0.0.0 --port=8080 wsgi:app"
+CMD bash -c "./.venv/bin/waitress-serve --host=0.0.0.0 --port=8080 wsgi:app"

@@ -11,7 +11,7 @@ import flask
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(os.path.dirname(os.path.join("./", __file__)))
 app = flask.Flask(
-    __name__, template_folder="./Flask/templates/", static_folder="./html/static/"
+    __name__, template_folder="./templates/", static_folder="./html/static/"
 )
 app.config["MAX_CONTENT_LENGTH"] = 100000000
 os.makedirs("./tmp", exist_ok=True)
