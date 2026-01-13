@@ -2,10 +2,10 @@
     "compilerOptions": {
         "sourceMap": true,
         "noImplicitAny": true,
-        "module": "es2022",
-        "target": "es2022",
-        "jsx": "react",
-        "moduleResolution": "node",
+        "module": "ESNext",
+        "target": "ESNext",
+        "jsx": "react-jsx",
+        "moduleResolution": "Bundler",
         "allowSyntheticDefaultImports": true,
     },
     "include": [
