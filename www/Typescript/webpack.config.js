@@ -11,10 +11,6 @@ module.exports = {
   mode: "production",
   devtool: "source-map",
 
-  resolve: {
-    extensions: [".js", ".ts", ".tsx"],
-  },
-
   module: {
     rules: [
       { exclude: /node_modules/, test: /\.ts(x?)$/, use: ["ts-loader"] },
@@ -26,11 +22,11 @@ module.exports = {
       },
     ],
   },
-/*
+  /*
   externals: {
     react: "React",
     "react-dom": "ReactDOM",
     recharts: "Recharts",
   },
-*/ 
+*/
 };
