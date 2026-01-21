@@ -1,14 +1,14 @@
-import sqlite3
 import json
 import os
-import jwt
+import sys
+import time
 import hashlib
 import re
 import unicodedata
 import flask
-import sys
-from contextlib import closing
-import time
+import jwt
+from sqlalchemy import Column, Integer, String, Text, create_engine, select, delete
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 FUNC_NAME = "tptef"
 
@@ -47,19 +47,33 @@ if os.path.exists(key_dir):
         if "pyJWT_timeout" in keys:
             pyJWT_timeout = keys["pyJWT_timeout"]
 
-with closing(sqlite3.connect(db_dir)) as conn:
-    cur = conn.cursor()
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS tptef_chat(id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "user TEXT NOT NULL,userid INTEGER NOT NULL,roomid INTEGER NOT NULL,"
-        "text TEXT NOT NULL,mode TEXT NOT NULL,timestamp INTEGER NOT NULL)"
-    )
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS tptef_room(id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "user TEXT NOT NULL,userid INTEGER NOT NULL,room TEXT UNIQUE NOT NULL,"
-        "passhash TEXT DEFAULT '',timestamp INTEGER NOT NULL)"
-    )
-    conn.commit()
+Base = declarative_base()
+
+
+class TptefChat(Base):
+    __tablename__ = "tptef_chat"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user = Column(Text, nullable=False)
+    userid = Column(Integer, nullable=False)
+    roomid = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False)
+    mode = Column(Text, nullable=False)
+    timestamp = Column(Integer, nullable=False)
+
+
+class TptefRoom(Base):
+    __tablename__ = "tptef_room"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user = Column(Text, nullable=False)
+    userid = Column(Integer, nullable=False)
+    room = Column(Text, unique=True, nullable=False)
+    passhash = Column(Text, default="")
+    timestamp = Column(Integer, nullable=False)
+
+
+engine = create_engine(f"sqlite:///{db_dir}", future=True)
+Session = sessionmaker(bind=engine, future=True)
+Base.metadata.create_all(engine)
 
 
 def safe_string(_s, _max=500, _anti_directory_traversal=True):
@@ -92,186 +106,135 @@ def show(request):
                 pyJWT_pass,
                 algorithm="HS256",
             )
+        
+        with Session() as session:
 
-        if "fetch" in request.form:
-            _dataDict.update(json.loads(request.form["fetch"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # duplication and roomKey check
-                cur.execute(
-                    "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
-                )
-                _room = cur.fetchone()
-                if _room == None:
+            if "fetch" in request.form:
+                _dataDict.update(json.loads(request.form["fetch"]))
+                _roompasshash = _dataDict["roomKey"]
+                if _dataDict["roomKey"] not in ["", "0"]:
+                    _roompasshash = hashlib.sha256(
+                        _dataDict["roomKey"].encode()
+                    ).hexdigest()
+                room = session.get(TptefRoom, _dataDict["roomid"])
+                if room is None:
                     return json.dumps(
                         {"message": "notExist", "text": "部屋が不明"},
                         ensure_ascii=False,
                     )
-                if _room["userid"] != user_id:
-                    if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
-                        return json.dumps(
-                            {"message": "wrongPass", "text": "アクセス拒否"},
-                            ensure_ascii=False,
-                        )
-                # process start
-                _userid = _room["userid"]
-                _roomid = _room["id"]
-                cur.execute("SELECT * FROM tptef_chat WHERE roomid = ?;", [_roomid])
-                _chats = [
-                    {key: value for key, value in dict(result).items()}
-                    for result in cur.fetchall()
-                ]
+                if room.userid != user_id and room.passhash and room.passhash != _roompasshash:
+                    return json.dumps(
+                        {"message": "wrongPass", "text": "アクセス拒否"},
+                        ensure_ascii=False,
+                    )
+                chats = (
+                    session.execute(
+                        select(TptefChat).where(TptefChat.roomid == room.id)
+                    )
+                    .scalars()
+                    .all()
+                )
+                session.commit()
                 return json.dumps(
                     {
                         "message": "processed",
-                        "chats": _chats,
-                        "room": dict(_room),
-                        "userid": _userid,
+                        "chats": [
+                            {c.name: getattr(chat, c.name) for c in chat.__table__.columns}
+                            for chat in chats
+                        ],
+                        "room": {c.name: getattr(room, c.name) for c in room.__table__.columns},
+                        "userid": room.userid,
                         "token": encoded_new_token,
                     },
                     ensure_ascii=False,
                 )
-            return json.dumps(
-                {"message": "rejected", "text": "不明なエラー"}, ensure_ascii=False
-            )
 
-        if "remark" in request.form:
-            _dataDict.update(json.loads(request.form["remark"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
-            if token == "":
-                return json.dumps(
-                    {"message": "tokenNothing", "text": "トークン未提出"},
-                    ensure_ascii=False,
-                )
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # duplication and roomKey check
-                cur.execute(
-                    "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
-                )
-                _room = cur.fetchone()
-                if _room == None:
+            if "remark" in request.form:
+                _dataDict.update(json.loads(request.form["remark"]))
+                _roompasshash = _dataDict["roomKey"]
+                if _dataDict["roomKey"] not in ["", "0"]:
+                    _roompasshash = hashlib.sha256(
+                        _dataDict["roomKey"].encode()
+                    ).hexdigest()
+                if token == "":
+                    return json.dumps(
+                        {"message": "tokenNothing", "text": "トークン未提出"},
+                        ensure_ascii=False,
+                    )
+                room = session.get(TptefRoom, _dataDict["roomid"])
+                if room is None:
                     return json.dumps(
                         {"message": "notExist", "text": "存在不明"}, ensure_ascii=False
                     )
-                if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
+                if room.passhash and room.passhash != _roompasshash:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
                     )
-                # process start
-                cur.execute(
-                    "INSERT INTO tptef_chat(user,userid,roomid,text,mode,timestamp) values(?,?,?,?,?,?)",
-                    [
-                        _dataDict["user"],
-                        user_id,
-                        _room["id"],
-                        _dataDict["text"],
-                        "text",
-                        int(time.time()),
-                    ],
+                session.add(
+                    TptefChat(
+                        user=_dataDict["user"],
+                        userid=user_id,
+                        roomid=room.id,
+                        text=_dataDict["text"],
+                        mode="text",
+                        timestamp=int(time.time()),
+                    )
                 )
-                conn.commit()
-                return json.dumps(
-                    {"message": "processed"},
-                    ensure_ascii=False,
-                )
-            return json.dumps(
-                {"message": "rejected", "text": "不明なエラー"}, ensure_ascii=False
-            )
+                session.commit()
+                return json.dumps({"message": "processed"}, ensure_ascii=False)
 
-        if "upload" in request.files:
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
-            if token == "":
-                return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # duplication and roomKey check
-                cur.execute(
-                    "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
-                )
-                _room = cur.fetchone()
-                if _room == None:
+            if "upload" in request.files:
+                _roompasshash = _dataDict["roomKey"]
+                if _dataDict["roomKey"] not in ["", "0"]:
+                    _roompasshash = hashlib.sha256(
+                        _dataDict["roomKey"].encode()
+                    ).hexdigest()
+                if token == "":
+                    return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
+                room = session.get(TptefRoom, _dataDict["roomid"])
+                if room is None:
                     return json.dumps(
                         {"message": "notExist", "text": "存在不明"}, ensure_ascii=False
                     )
-                if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
+                if room.passhash and room.passhash != _roompasshash:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
                     )
-                # process start
-                _timestamp = int(time.time())
-                cur.execute(
-                    "INSERT INTO tptef_chat(user,userid,roomid,text,mode,timestamp) values(?,?,?,?,?,?)",
-                    [
-                        _dataDict["user"],
-                        user_id,
-                        _room["id"],
-                        request.files["upload"].filename,
-                        "attachment",
-                        _timestamp,
-                    ],
+                chat = TptefChat(
+                    user=_dataDict["user"],
+                    userid=user_id,
+                    roomid=room.id,
+                    text=request.files["upload"].filename,
+                    mode="attachment",
+                    timestamp=int(time.time()),
                 )
-                conn.commit()
-                cur.execute(
-                    "SELECT * FROM tptef_chat WHERE ROWID = last_insert_rowid();",
-                    [],
-                )
-                _chat = cur.fetchone()
+                session.add(chat)
                 request.files["upload"].save(
-                    os.path.normpath(os.path.join(tmp_dir, safe_string(_chat["id"])))
+                    os.path.normpath(os.path.join(tmp_dir, safe_string(chat.id)))
                 )
-                return json.dumps(
-                    {"message": "processed"},
-                    ensure_ascii=False,
-                )
-            return json.dumps(
-                {"message": "rejected", "text": "不明なエラー"}, ensure_ascii=False
-            )
+                session.commit()
+                return json.dumps({"message": "processed"}, ensure_ascii=False)
 
-        if "download" in request.form:
-            _dataDict.update(json.loads(request.form["download"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # duplication and roomKey check
-                cur.execute(
-                    "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
-                )
-                _room = cur.fetchone()
-                if _room == None:
+            if "download" in request.form:
+                _dataDict.update(json.loads(request.form["download"]))
+                _roompasshash = _dataDict["roomKey"]
+                if _dataDict["roomKey"] not in ["", "0"]:
+                    _roompasshash = hashlib.sha256(
+                        _dataDict["roomKey"].encode()
+                    ).hexdigest()
+                    room = session.get(TptefRoom, _dataDict["roomid"])
+                if room is None:
                     return json.dumps(
                         {"message": "notExist", "text": "ファイルが不明"},
                         ensure_ascii=False,
                     )
-                if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
+                if room.passhash and room.passhash != _roompasshash:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
                     )
-                # process start
                 _target_file = os.path.normpath(
                     os.path.join(tmp_dir, safe_string(_dataDict["chatid"]))
                 )
@@ -285,184 +248,134 @@ def show(request):
                     {"message": "notExist", "text": "ファイル不明"},
                     ensure_ascii=False,
                 )
-            return json.dumps(
-                {"message": "rejected", "text": "不明なエラー"}, ensure_ascii=False
-            )
 
-        if "delete" in request.form:
-            _dataDict.update(json.loads(request.form["delete"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
-            if token == "":
-                return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # duplication and roomKey check
-                cur.execute(
-                    "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
-                )
-                _room = cur.fetchone()
-                if _room == None:
+            if "delete" in request.form:
+                _dataDict.update(json.loads(request.form["delete"]))
+                _roompasshash = _dataDict["roomKey"]
+                if _dataDict["roomKey"] not in ["", "0"]:
+                    _roompasshash = hashlib.sha256(
+                        _dataDict["roomKey"].encode()
+                    ).hexdigest()
+                if token == "":
+                    return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
+                room = session.get(TptefRoom, _dataDict["roomid"])
+                if room is None:
                     return json.dumps(
                         {"message": "notExist", "text": "発言が不明"},
                         ensure_ascii=False,
                     )
-                if _room["passhash"] != "" and _room["passhash"] != _roompasshash:
+                if room.passhash and room.passhash != _roompasshash:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
                     )
-                # process start
-                cur.execute(
-                    "DELETE FROM tptef_chat WHERE id = ? AND userId = ? ;",
-                    [_dataDict["chatid"], user_id],
+                session.execute(
+                    delete(TptefChat).where(
+                        TptefChat.id == _dataDict["chatid"],
+                        TptefChat.userid == user_id,
+                    )
                 )
-                conn.commit()
                 _remove_file = os.path.normpath(
                     os.path.join(tmp_dir, safe_string(_dataDict["chatid"]))
                 )
                 if os.path.exists(_remove_file):
                     os.remove(_remove_file)
-                return json.dumps(
-                    {"message": "processed"},
-                    ensure_ascii=False,
-                )
-            return json.dumps(
-                {"message": "rejected", "text": "不明なエラー"}, ensure_ascii=False
-            )
+                session.commit()
+                return json.dumps({"message": "processed"}, ensure_ascii=False)
 
-        if "search" in request.form:
-            _dataDict.update(json.loads(request.form["search"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                cur.execute("SELECT * FROM tptef_room")
-                _rooms = [
-                    {key: value for key, value in dict(result).items()}
-                    for result in cur.fetchall()
-                ]
+            if "search" in request.form:
+                _dataDict.update(json.loads(request.form["search"]))
+                rooms = session.execute(select(TptefRoom)).scalars().all()
+                session.commit()
                 return json.dumps(
                     {
                         "message": "processed",
-                        "rooms": _rooms,
+                        "rooms": [
+                            {c.name: getattr(room, c.name) for c in room.__table__.columns}
+                            for room in rooms
+                        ],
                         "token": encoded_new_token,
                     },
                     ensure_ascii=False,
                 )
-            return json.dumps(
-                {"message": "rejected", "text": "不明なエラー"}, ensure_ascii=False
-            )
 
-        if "create" in request.form:
-            _dataDict.update(json.loads(request.form["create"]))
-            _room_name = safe_string(_dataDict["room"], _anti_directory_traversal=False)
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
-            if token == "":
-                return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # check duplication
-                cur.execute("SELECT * FROM tptef_room WHERE room = ?;", [_room_name])
-                _room = cur.fetchone()
-                if _room != None:
+            if "create" in request.form:
+                _dataDict.update(json.loads(request.form["create"]))
+                _room_name = safe_string(_dataDict["room"], _anti_directory_traversal=False)
+                _roompasshash = _dataDict["roomKey"]
+                if _dataDict["roomKey"] not in ["", "0"]:
+                    _roompasshash = hashlib.sha256(
+                        _dataDict["roomKey"].encode()
+                    ).hexdigest()
+                if token == "":
+                    return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
+                room = session.execute(
+                    select(TptefRoom).where(TptefRoom.room == _room_name)
+                ).scalar_one_or_none()
+                if room is not None:
                     return json.dumps(
                         {"message": "alreadyExisted", "text": "既存の部屋名"},
                         ensure_ascii=False,
                     )
-                cur.execute(
-                    "INSERT INTO tptef_room(user,userid,room,passhash,timestamp) values(?,?,?,?,?)",
-                    [
-                        _dataDict["user"],
-                        user_id,
-                        _room_name,
-                        _roompasshash,
-                        int(time.time()),
-                    ],
+                room = TptefRoom(
+                    user=_dataDict["user"],
+                    userid=user_id,
+                    room=_room_name,
+                    passhash=_roompasshash,
+                    timestamp=int(time.time()),
                 )
-                conn.commit()
-                cur.execute(
-                    "SELECT * FROM tptef_room WHERE ROWID = last_insert_rowid();", []
-                )
-                _room = cur.fetchone()
+                session.add(room)
+                session.commit()
                 return json.dumps(
                     {
                         "message": "processed",
-                        "room": dict(_room),
+                        "room": {c.name: getattr(room, c.name) for c in room.__table__.columns},
                     },
                     ensure_ascii=False,
                 )
-            return json.dumps(
-                {"message": "rejected", "text": "不明なエラー"}, ensure_ascii=False
-            )
 
-        if "destroy" in request.form:
-            _dataDict.update(json.loads(request.form["destroy"]))
-            _roompasshash = _dataDict["roomKey"]
-            if _dataDict["roomKey"] not in ["", "0"]:
-                _roompasshash = hashlib.sha256(
-                    _dataDict["roomKey"].encode()
-                ).hexdigest()
-            if token == "":
-                return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # check duplication
-                cur.execute(
-                    "SELECT * FROM tptef_room WHERE id = ?;", [_dataDict["roomid"]]
-                )
-                _room = cur.fetchone()
-                if _room == None:
+            if "destroy" in request.form:
+                _dataDict.update(json.loads(request.form["destroy"]))
+                _roompasshash = _dataDict["roomKey"]
+                if _dataDict["roomKey"] not in ["", "0"]:
+                    _roompasshash = hashlib.sha256(
+                        _dataDict["roomKey"].encode()
+                    ).hexdigest()
+                if token == "":
+                    return json.dumps({"message": "tokenNothing"}, ensure_ascii=False)
+                room = session.get(TptefRoom, _dataDict["roomid"])
+                if room is None:
                     return json.dumps(
                         {"message": "notExist", "text": "存在無し"}, ensure_ascii=False
                     )
-                if _room["userid"] != user_id:
+                if room.userid != user_id:
                     return json.dumps(
                         {"message": "youerntOwner", "text": "アクセス拒否"},
                         ensure_ascii=False,
                     )
-                cur.execute(
-                    "DELETE FROM tptef_room WHERE userid = ? AND id = ? ;",
-                    [user_id, _dataDict["roomid"]],
+                chats = (
+                    session.execute(
+                        select(TptefChat).where(
+                            TptefChat.roomid == room.id, TptefChat.mode == "attachment"
+                        )
+                    )
+                    .scalars()
+                    .all()
                 )
-                cur.execute(
-                    "SELECT * FROM tptef_chat WHERE roomid = ? AND mode=? ;",
-                    [_room["id"], "attachment"],
-                )
-                _chats = cur.fetchall()
-                for _chat in _chats:
+                for chat in chats:
                     _remove_file = os.path.normpath(
-                        os.path.join(tmp_dir, str(_chat["id"]))
+                        os.path.join(tmp_dir, str(chat.id))
                     )
                     if os.path.exists(_remove_file):
                         os.remove(_remove_file)
-                cur.execute(
-                    "DELETE FROM tptef_chat WHERE roomid = ? ;",
-                    [_room["id"]],
+                session.execute(delete(TptefChat).where(TptefChat.roomid == room.id))
+                session.execute(
+                    delete(TptefRoom).where(
+                        TptefRoom.userid == user_id, TptefRoom.id == _dataDict["roomid"]
+                    )
                 )
-                conn.commit()
-                return json.dumps(
-                    {"message": "processed"},
-                    ensure_ascii=False,
-                )
-            return json.dumps(
-                {"message": "rejected", "text": "不明なエラー"}, ensure_ascii=False
-            )
-
+                session.commit()
+                return json.dumps({"message": "processed"}, ensure_ascii=False)
     return "404: nof found → main.html", 404
 
 
