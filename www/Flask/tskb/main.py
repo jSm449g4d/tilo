@@ -1,15 +1,15 @@
-import sqlite3
 import json
 import os
-import jwt
-from PIL import Image
+import sys
+import time
+import glob
 import unicodedata
 import re
 import flask
-import sys
-from contextlib import closing
-import time
-import glob
+import jwt
+from PIL import Image
+from sqlalchemy import Column, Integer, Text, Float, create_engine, select, delete
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 FUNC_NAME = "tskb"
 
@@ -50,46 +50,78 @@ if os.path.exists(key_dir + "keys.json"):
         if "pyJWT_timeout" in keys:
             pyJWT_timeout = keys["pyJWT_timeout"]
 
-with closing(sqlite3.connect(db_dir)) as conn:
-    cur = conn.cursor()
-    "(id,name,tag,description,userid,user,passhash,timestamp,img,contents)"
-    # contents={material_id:amount}
-    # passhash="": public ,"0": private
-    # img: reserved for the future
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS tskb_combination(id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "name TEXT UNIQUE NOT NULL,tag TEXT DEFAULT '',description TEXT DEFAULT '',"
-        "userid INTEGER NOT NULL,user TEXT NOT NULL,passhash TEXT DEFAULT '',timestamp INTEGER NOT NULL,"
-        "img TEXT DEFAULT '',"
-        "contents TEXT NOT NULL)"
-    )
-    # passhash="": public ,"0": private
-    # tag="Requirements": special
-    # img: reserved for the future
-    "(id,name,tag,description,userid,user,passhash,timestamp,img,"
-    "unit,cost,carbo,fiber,protein,fat,saturated_fat,n3,DHA_EPA,n6,"
-    "ca,cl,cr,cu,i,fe,mg,mn,mo,p,k,se,na,zn,va,vb1,vb2,vb3,vb5,vb6,vb7,vb9,vb12,vc,vd,ve,vk,colin,kcal)"
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS tskb_material(id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        "name TEXT UNIQUE NOT NULL,tag TEXT DEFAULT '',description TEXT DEFAULT '',"
-        "userid INTEGER NOT NULL,user TEXT NOT NULL,passhash TEXT DEFAULT '',timestamp INTEGER NOT NULL,"
-        "img TEXT DEFAULT '',"
-        "unit REAL DEFAULT 100,cost REAL DEFAULT 0,"
-        "carbo REAL DEFAULT 0,fiber REAL DEFAULT 0,"
-        "protein REAL DEFAULT 0,fat REAL DEFAULT 0,saturated_fat REAL DEFAULT 0,"
-        "n3 REAL DEFAULT 0,DHA_EPA REAL DEFAULT 0,"
-        "n6 REAL DEFAULT 0,ca REAL DEFAULT 0,cl REAL DEFAULT 0,cr REAL DEFAULT 0,"
-        "cu REAL DEFAULT 0,i REAL DEFAULT 0,fe REAL DEFAULT 0,"
-        "mg REAL DEFAULT 0,mn REAL DEFAULT 0,mo REAL DEFAULT 0,"
-        "p REAL DEFAULT 0,k REAL DEFAULT 0,se REAL DEFAULT 0,"
-        "na REAL DEFAULT 0,zn REAL DEFAULT 0,va REAL DEFAULT 0,"
-        "vb1 REAL DEFAULT 0,vb2 REAL DEFAULT 0,vb3 REAL DEFAULT 0,"
-        "vb5 REAL DEFAULT 0,vb6 REAL DEFAULT 0,vb7 REAL DEFAULT 0,"
-        "vb9 REAL DEFAULT 0,vb12 REAL DEFAULT 0,vc REAL DEFAULT 0,"
-        "vd REAL DEFAULT 0,ve REAL DEFAULT 0,vk REAL DEFAULT 0,"
-        "colin REAL DEFAULT 0,kcal REAL DEFAULT 0)"
-    )
-    conn.commit()
+Base = declarative_base()
+
+
+class TskbCombination(Base):
+    __tablename__ = "tskb_combination"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(Text, unique=True, nullable=False)
+    tag = Column(Text, default="")
+    description = Column(Text, default="")
+    userid = Column(Integer, nullable=False)
+    user = Column(Text, nullable=False)
+    passhash = Column(Text, default="")
+    timestamp = Column(Integer, nullable=False)
+    img = Column(Text, default="")
+    contents = Column(Text, nullable=False)
+
+
+class TskbMaterial(Base):
+    __tablename__ = "tskb_material"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(Text, unique=True, nullable=False)
+    tag = Column(Text, default="")
+    description = Column(Text, default="")
+    userid = Column(Integer, nullable=False)
+    user = Column(Text, nullable=False)
+    passhash = Column(Text, default="")
+    timestamp = Column(Integer, nullable=False)
+    img = Column(Text, default="")
+    unit = Column(Float, default=100)
+    cost = Column(Float, default=0)
+    carbo = Column(Float, default=0)
+    fiber = Column(Float, default=0)
+    protein = Column(Float, default=0)
+    fat = Column(Float, default=0)
+    saturated_fat = Column(Float, default=0)
+    n3 = Column(Float, default=0)
+    DHA_EPA = Column(Float, default=0)
+    n6 = Column(Float, default=0)
+    ca = Column(Float, default=0)
+    cl = Column(Float, default=0)
+    cr = Column(Float, default=0)
+    cu = Column(Float, default=0)
+    i = Column(Float, default=0)
+    fe = Column(Float, default=0)
+    mg = Column(Float, default=0)
+    mn = Column(Float, default=0)
+    mo = Column(Float, default=0)
+    p = Column(Float, default=0)
+    k = Column(Float, default=0)
+    se = Column(Float, default=0)
+    na = Column(Float, default=0)
+    zn = Column(Float, default=0)
+    va = Column(Float, default=0)
+    vb1 = Column(Float, default=0)
+    vb2 = Column(Float, default=0)
+    vb3 = Column(Float, default=0)
+    vb5 = Column(Float, default=0)
+    vb6 = Column(Float, default=0)
+    vb7 = Column(Float, default=0)
+    vb9 = Column(Float, default=0)
+    vb12 = Column(Float, default=0)
+    vc = Column(Float, default=0)
+    vd = Column(Float, default=0)
+    ve = Column(Float, default=0)
+    vk = Column(Float, default=0)
+    colin = Column(Float, default=0)
+    kcal = Column(Float, default=0)
+
+
+engine = create_engine(f"sqlite:///{db_dir}", future=True)
+Session = sessionmaker(bind=engine, future=True)
+Base.metadata.create_all(engine)
 
 
 def load_reference_file():
@@ -97,103 +129,79 @@ def load_reference_file():
     for _filename in _reference_files:
         with open(_filename, "r", encoding="utf-8") as _f:
             _updata_dicts = json.loads(_f.read())
-            with closing(sqlite3.connect(db_dir)) as conn:
+            with Session() as session:
                 for _updata_dict in _updata_dicts:
-                    conn.row_factory = sqlite3.Row
-                    cur = conn.cursor()
-                    # make record
-                    cur.execute(
-                        "SELECT * FROM tskb_material WHERE name = ?;",
-                        [safe_string(_updata_dict["name"])],
-                    )
-                    _material = cur.fetchone()
-                    if _material == None:
-                        cur.execute(
-                            "INSERT INTO tskb_material "
-                            "(name,userid,user,passhash,timestamp) "
-                            "values(?,?,?,?,?)",
-                            [
-                                safe_string(_updata_dict["name"]),
-                                0,
-                                "admin",
-                                "",
-                                int(time.time()),
-                            ],
+                    _material = session.execute(
+                        select(TskbMaterial).where(
+                            TskbMaterial.name == safe_string(_updata_dict["name"])
                         )
-                        cur.execute(
-                            "SELECT * FROM tskb_material WHERE ROWID = last_insert_rowid();",
-                            [],
+                    ).scalar_one_or_none()
+                    if _material is None:
+                        _material = TskbMaterial(
+                            name=safe_string(_updata_dict["name"]),
+                            userid=0,
+                            user="admin",
+                            passhash="",
+                            timestamp=int(time.time()),
                         )
-                        _material = cur.fetchone()
-                    _material = dict(_material)
-                    # upgrade record
-                    _material.update(_updata_dict)
-                    if isfloat(_material["unit"]) < 1:
-                        _material["unit"] = 1
-                    cur.execute(
-                        "UPDATE tskb_material SET name = ?,tag = ?,description = ?,"
-                        "userid = ?,user = ?,passhash = ?,timestamp = ?,"
-                        "unit = ?,cost = ?,carbo = ?,fiber= ? ,protein = ?,"
-                        "fat = ?,saturated_fat = ?,n3 = ?,DHA_EPA = ?,n6 = ?,"
-                        "ca = ?,cl = ?,cr = ?,cu = ?,i = ?,fe = ?,mg = ?,mn = ?,"
-                        "mo = ?,p = ?,k = ?,se = ?,na = ?,zn = ?,va = ?,vb1 = ?,"
-                        "vb2 = ?,vb3 = ?,vb5 = ?,vb6 = ?,vb7 = ?,"
-                        "vb9 = ?,vb12 = ?,vc = ?,vd = ?,ve = ?,vk = ?,"
-                        "colin = ?,kcal = ? WHERE id = ?;",
-                        [
-                            safe_string(_material["name"]),
-                            safe_string(_material["tag"]),
-                            safe_string(
-                                _material["description"],
-                                _anti_directory_traversal=False,
-                            ),
-                            0,
-                            "admin",
-                            _material["passhash"],
-                            _material["timestamp"],
-                            isfloat(_material["unit"]),
-                            isfloat(_material["cost"]),
-                            isfloat(_material["carbo"]),
-                            isfloat(_material["fiber"]),
-                            isfloat(_material["protein"]),
-                            isfloat(_material["fat"]),
-                            isfloat(_material["saturated_fat"]),
-                            isfloat(_material["n3"]),
-                            isfloat(_material["DHA_EPA"]),
-                            isfloat(_material["n6"]),
-                            isfloat(_material["ca"]),
-                            isfloat(_material["cl"]),
-                            isfloat(_material["cr"]),
-                            isfloat(_material["cu"]),
-                            isfloat(_material["i"]),
-                            isfloat(_material["fe"]),
-                            isfloat(_material["mg"]),
-                            isfloat(_material["mn"]),
-                            isfloat(_material["mo"]),
-                            isfloat(_material["p"]),
-                            isfloat(_material["k"]),
-                            isfloat(_material["se"]),
-                            isfloat(_material["na"]),
-                            isfloat(_material["zn"]),
-                            isfloat(_material["va"]),
-                            isfloat(_material["vb1"]),
-                            isfloat(_material["vb2"]),
-                            isfloat(_material["vb3"]),
-                            isfloat(_material["vb5"]),
-                            isfloat(_material["vb6"]),
-                            isfloat(_material["vb7"]),
-                            isfloat(_material["vb9"]),
-                            isfloat(_material["vb12"]),
-                            isfloat(_material["vc"]),
-                            isfloat(_material["vd"]),
-                            isfloat(_material["ve"]),
-                            isfloat(_material["vk"]),
-                            isfloat(_material["colin"]),
-                            isfloat(_material["kcal"]),
-                            _material["id"],
-                        ],
+                        session.add(_material)
+                        session.flush()
+                    _material_dict = {c.name: getattr(_material, c.name) for c in _material.__table__.columns}
+                    _material_dict.update(_updata_dict)
+                    _material.name = safe_string(_material_dict["name"])
+                    _material.tag = safe_string(_material_dict.get("tag", ""))
+                    _material.description = safe_string(
+                        _material_dict.get("description", ""),
+                        _anti_directory_traversal=False,
                     )
-                conn.commit()
+                    _material.userid = 0
+                    _material.user = "admin"
+                    _material.passhash = _material_dict.get("passhash", "")
+                    _material.timestamp = _material_dict.get("timestamp", _material.timestamp)
+                    _material.unit = isfloat(_material_dict.get("unit", _material.unit))
+                    if _material.unit < 1:
+                        _material.unit = 1
+                    _material.cost = isfloat(_material_dict.get("cost", _material.cost))
+                    _material.carbo = isfloat(_material_dict.get("carbo", _material.carbo))
+                    _material.fiber = isfloat(_material_dict.get("fiber", _material.fiber))
+                    _material.protein = isfloat(_material_dict.get("protein", _material.protein))
+                    _material.fat = isfloat(_material_dict.get("fat", _material.fat))
+                    _material.saturated_fat = isfloat(
+                        _material_dict.get("saturated_fat", _material.saturated_fat)
+                    )
+                    _material.n3 = isfloat(_material_dict.get("n3", _material.n3))
+                    _material.DHA_EPA = isfloat(_material_dict.get("DHA_EPA", _material.DHA_EPA))
+                    _material.n6 = isfloat(_material_dict.get("n6", _material.n6))
+                    _material.ca = isfloat(_material_dict.get("ca", _material.ca))
+                    _material.cl = isfloat(_material_dict.get("cl", _material.cl))
+                    _material.cr = isfloat(_material_dict.get("cr", _material.cr))
+                    _material.cu = isfloat(_material_dict.get("cu", _material.cu))
+                    _material.i = isfloat(_material_dict.get("i", _material.i))
+                    _material.fe = isfloat(_material_dict.get("fe", _material.fe))
+                    _material.mg = isfloat(_material_dict.get("mg", _material.mg))
+                    _material.mn = isfloat(_material_dict.get("mn", _material.mn))
+                    _material.mo = isfloat(_material_dict.get("mo", _material.mo))
+                    _material.p = isfloat(_material_dict.get("p", _material.p))
+                    _material.k = isfloat(_material_dict.get("k", _material.k))
+                    _material.se = isfloat(_material_dict.get("se", _material.se))
+                    _material.na = isfloat(_material_dict.get("na", _material.na))
+                    _material.zn = isfloat(_material_dict.get("zn", _material.zn))
+                    _material.va = isfloat(_material_dict.get("va", _material.va))
+                    _material.vb1 = isfloat(_material_dict.get("vb1", _material.vb1))
+                    _material.vb2 = isfloat(_material_dict.get("vb2", _material.vb2))
+                    _material.vb3 = isfloat(_material_dict.get("vb3", _material.vb3))
+                    _material.vb5 = isfloat(_material_dict.get("vb5", _material.vb5))
+                    _material.vb6 = isfloat(_material_dict.get("vb6", _material.vb6))
+                    _material.vb7 = isfloat(_material_dict.get("vb7", _material.vb7))
+                    _material.vb9 = isfloat(_material_dict.get("vb9", _material.vb9))
+                    _material.vb12 = isfloat(_material_dict.get("vb12", _material.vb12))
+                    _material.vc = isfloat(_material_dict.get("vc", _material.vc))
+                    _material.vd = isfloat(_material_dict.get("vd", _material.vd))
+                    _material.ve = isfloat(_material_dict.get("ve", _material.ve))
+                    _material.vk = isfloat(_material_dict.get("vk", _material.vk))
+                    _material.colin = isfloat(_material_dict.get("colin", _material.colin))
+                    _material.kcal = isfloat(_material_dict.get("kcal", _material.kcal))
+                session.commit()
 
 
 def isfloat(_s):
@@ -216,6 +224,49 @@ def safe_string(_s, _max=500, _anti_directory_traversal=True):
 
 RECORD_RETURN_MAX = 100
 load_reference_file()
+
+
+NUM_FIELDS = [
+    "unit",
+    "cost",
+    "carbo",
+    "fiber",
+    "protein",
+    "fat",
+    "saturated_fat",
+    "n3",
+    "DHA_EPA",
+    "n6",
+    "ca",
+    "cl",
+    "cr",
+    "cu",
+    "i",
+    "fe",
+    "mg",
+    "mn",
+    "mo",
+    "p",
+    "k",
+    "se",
+    "na",
+    "zn",
+    "va",
+    "vb1",
+    "vb2",
+    "vb3",
+    "vb5",
+    "vb6",
+    "vb7",
+    "vb9",
+    "vb12",
+    "vc",
+    "vd",
+    "ve",
+    "vk",
+    "colin",
+    "kcal",
+]
 
 
 def show(request):
@@ -259,27 +310,23 @@ def show(request):
                 pyJWT_pass,
                 algorithm="HS256",
             )
-        if "listtag" in request.form:
-            _dataDict.update(json.loads(request.form["listtag"]))
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # process start
-                cur.execute(
-                    "SELECT tag FROM tskb_material WHERE passhash = '' ",
-                    [],
-                )
+
+        with Session() as session:
+            if "listtag" in request.form:
+                _dataDict.update(json.loads(request.form["listtag"]))
+
                 _tags = {}
-                for result in cur.fetchall():
-                    if result["tag"] == "":
+                for result in session.execute(
+                    select(TskbMaterial.tag).where(TskbMaterial.passhash == "")
+                ).all():
+                    _tag = result[0]
+                    if _tag == "":
                         continue
-                    if result["tag"] not in _tags:
-                        _tags[result["tag"]] = 0
-                    _tags[result["tag"]] += 1
+                    if _tag not in _tags:
+                        _tags[_tag] = 0
+                    _tags[_tag] += 1
                 _tags_list = sorted(_tags.items(), key=lambda x: x[1], reverse=True)
-                _tags = []
-                for _dict in _tags_list:
-                    _tags.append(_dict[0])
+                _tags = [_dict[0] for _dict in _tags_list]
                 return json.dumps(
                     {
                         "message": "processed",
@@ -287,454 +334,339 @@ def show(request):
                     },
                     ensure_ascii=False,
                 )
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
-        if "explore" in request.form:
-            _dataDict.update(json.loads(request.form["explore"]))
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
+            if "explore" in request.form:
+                _dataDict.update(json.loads(request.form["explore"]))
                 _userid = -1
                 if token != "":
                     _userid = token["id"]
                 _material_offset = 0
                 if "offset" in _dataDict:
                     _material_offset = int(_dataDict["offset"])
-                # process start
                 match _dataDict["search_radio"]:
                     case "name":
-                        cur.execute(
-                            "SELECT * FROM tskb_material WHERE name LIKE ? "
-                            "AND passhash = '' LIMIT ? OFFSET ? ;",
-                            [
-                                "%" + _dataDict["keyword"] + "%",
-                                RECORD_RETURN_MAX,
-                                RECORD_RETURN_MAX * _material_offset,
-                            ],
+                        _materials = (
+                            session.execute(
+                                select(TskbMaterial)
+                                .where(
+                                    TskbMaterial.name.like(
+                                        "%" + _dataDict["keyword"] + "%"
+                                    ),
+                                    TskbMaterial.passhash == "",
+                                )
+                                .limit(RECORD_RETURN_MAX)
+                                .offset(RECORD_RETURN_MAX * _material_offset)
+                            )
+                            .scalars()
+                            .all()
                         )
-                        _materials = [
-                            {key: value for key, value in dict(result).items()}
-                            for result in cur.fetchall()
-                        ]
                         return json.dumps(
                             {
                                 "message": "processed",
-                                "materials": _materials,
+                                "materials": [
+                                    {c.name: getattr(m, c.name) for c in m.__table__.columns}
+                                    for m in _materials
+                                ],
                                 "token": encoded_new_token,
                             },
                             ensure_ascii=False,
                         )
                     case "tag":
-                        cur.execute(
-                            "SELECT * FROM tskb_material WHERE tag LIKE ? "
-                            "AND passhash = '' LIMIT ? OFFSET ? ;",
-                            [
-                                "%" + _dataDict["keyword"] + "%",
-                                RECORD_RETURN_MAX,
-                                RECORD_RETURN_MAX * _material_offset,
-                            ],
+                        _materials = (
+                            session.execute(
+                                select(TskbMaterial)
+                                .where(
+                                    TskbMaterial.tag.like(
+                                        "%" + _dataDict["keyword"] + "%"
+                                    ),
+                                    TskbMaterial.passhash == "",
+                                )
+                                .limit(RECORD_RETURN_MAX)
+                                .offset(RECORD_RETURN_MAX * _material_offset)
+                            )
+                            .scalars()
+                            .all()
                         )
-                        _materials = [
-                            {key: value for key, value in dict(result).items()}
-                            for result in cur.fetchall()
-                        ]
                         return json.dumps(
                             {
                                 "message": "processed",
-                                "materials": _materials,
+                                "materials": [
+                                    {c.name: getattr(m, c.name) for c in m.__table__.columns}
+                                    for m in _materials
+                                ],
                                 "token": encoded_new_token,
                             },
                             ensure_ascii=False,
                         )
                     case "private":
-                        cur.execute(
-                            "SELECT * FROM tskb_material WHERE name LIKE ? "
-                            "AND userid = ? LIMIT ? OFFSET ? ;",
-                            [
-                                "%" + _dataDict["keyword"] + "%",
-                                _userid,
-                                RECORD_RETURN_MAX,
-                                RECORD_RETURN_MAX * _material_offset,
-                            ],
+                        _materials = (
+                            session.execute(
+                                select(TskbMaterial)
+                                .where(
+                                    TskbMaterial.name.like(
+                                        "%" + _dataDict["keyword"] + "%"
+                                    ),
+                                    TskbMaterial.userid == _userid,
+                                )
+                                .limit(RECORD_RETURN_MAX)
+                                .offset(RECORD_RETURN_MAX * _material_offset)
+                            )
+                            .scalars()
+                            .all()
                         )
-                        _materials = [
-                            {key: value for key, value in dict(result).items()}
-                            for result in cur.fetchall()
-                        ]
                         return json.dumps(
                             {
                                 "message": "processed",
-                                "materials": _materials,
+                                "materials": [
+                                    {c.name: getattr(m, c.name) for c in m.__table__.columns}
+                                    for m in _materials
+                                ],
                                 "token": encoded_new_token,
                             },
                             ensure_ascii=False,
                         )
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
-        if "fetch" in request.form:
-            _dataDict.update(json.loads(request.form["fetch"]))
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # process start
-                # select combination
+            if "fetch" in request.form:
+                _dataDict.update(json.loads(request.form["fetch"]))
                 _userid = -1
                 if token != "":
                     _userid = token["id"]
-                cur.execute(
-                    "SELECT * FROM tskb_combination WHERE id = ?;",
-                    [_dataDict["combinationid"]],
-                )
-                _combination = cur.fetchone()
-                if _combination == None:
+                _combination = session.get(TskbCombination, _dataDict["combinationid"])
+                if _combination is None:
                     return json.dumps(
                         {"message": "notExist", "text": "レシピが不明"},
                         ensure_ascii=False,
                     )
-                if _combination["passhash"] != "":
-                    if _combination["userid"] != _userid:
+                if _combination.passhash != "":
+                    if _combination.userid != _userid:
                         return json.dumps(
                             {"message": "wrongPass", "text": "アクセス拒否"},
                             ensure_ascii=False,
                         )
-                # select material
-                _contents = json.loads(_combination["contents"])
+                _contents = json.loads(_combination.contents)
                 _materials = []
-                for _key, _val in _contents.items():
-                    cur.execute("SELECT * FROM tskb_material WHERE id = ?;", [_key])
-                    _material = cur.fetchone()
-                    if _material == None:
+                for _key in _contents.keys():
+                    _material = session.get(TskbMaterial, int(_key))
+                    if _material is None:
                         continue
-                    if _material["passhash"] != "":
-                        if _material["userid"] != _userid:
+                    if _material.passhash != "":
+                        if _material.userid != _userid:
                             continue
-                    _materials.append(dict(_material))
-                # requirements
-                cur.execute(
-                    "SELECT * FROM tskb_material WHERE tag = 'Requirements' "
-                    "AND passhash = '' AND userid = 0 LIMIT 20;",
-                    [],
+                    _materials.append(
+                        {c.name: getattr(_material, c.name) for c in _material.__table__.columns}
+                    )
+                _requirements = (
+                    session.execute(
+                        select(TskbMaterial)
+                        .where(
+                            TskbMaterial.tag == "Requirements",
+                            TskbMaterial.passhash == "",
+                            TskbMaterial.userid == 0,
+                        )
+                        .limit(20)
+                    )
+                    .scalars()
+                    .all()
                 )
-                _requirements = [
-                    {key: value for key, value in dict(result).items()}
-                    for result in cur.fetchall()
-                ]
                 return json.dumps(
                     {
                         "message": "processed",
                         "materials": _materials,
-                        "combination": dict(_combination),
-                        "requirements": _requirements,
+                        "combination": {
+                            c.name: getattr(_combination, c.name)
+                            for c in _combination.__table__.columns
+                        },
+                        "requirements": [
+                            {c.name: getattr(r, c.name) for c in r.__table__.columns}
+                            for r in _requirements
+                        ],
                         "token": encoded_new_token,
                     },
                     ensure_ascii=False,
                 )
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
-        if "register" in request.form:
-            _dataDict.update(json.loads(request.form["register"]))
-            if token == "":
-                return json.dumps(
-                    {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
-                )
-            _passhash = ""
-            if _dataDict["privateFlag"] == True:
-                _passhash = "0"
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # process start
-                cur.execute(
-                    "SELECT * FROM tskb_material WHERE name = ?;",
-                    [safe_string(_dataDict["name"])],
-                )
-                _material = cur.fetchone()
-                if _material != None:
+            if "register" in request.form:
+                _dataDict.update(json.loads(request.form["register"]))
+                if token == "":
+                    return json.dumps(
+                        {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
+                    )
+                _passhash = ""
+                if _dataDict["privateFlag"] is True:
+                    _passhash = "0"
+                _material = session.execute(
+                    select(TskbMaterial).where(
+                        TskbMaterial.name == safe_string(_dataDict["name"])
+                    )
+                ).scalar_one_or_none()
+                if _material is not None:
                     return json.dumps(
                         {"message": "alreadyExisted", "text": "既存の名前"}
                     )
-                cur.execute(
-                    "INSERT INTO tskb_material "
-                    "(name,tag,description,userid,user,passhash,timestamp) "
-                    "values(?,?,?,?,?,?,?)",
-                    [
-                        safe_string(_dataDict["name"]),
-                        safe_string(_dataDict["tag"]),
-                        safe_string(
-                            _dataDict["description"], _anti_directory_traversal=False
-                        ),
-                        token["id"],
-                        _dataDict["user"],
-                        _passhash,
-                        int(time.time()),
-                    ],
+                _material = TskbMaterial(
+                    name=safe_string(_dataDict["name"]),
+                    tag=safe_string(_dataDict["tag"]),
+                    description=safe_string(
+                        _dataDict["description"], _anti_directory_traversal=False
+                    ),
+                    userid=token["id"],
+                    user=_dataDict["user"],
+                    passhash=_passhash,
+                    timestamp=int(time.time()),
                 )
-                cur.execute(
-                    "SELECT * FROM tskb_material WHERE ROWID = last_insert_rowid();",
-                    [],
-                )
-                _material = cur.fetchone()
-                conn.commit()
+                session.add(_material)
+                session.commit()
                 return json.dumps(
-                    {"message": "processed", "material": dict(_material)},
+                    {
+                        "message": "processed",
+                        "material": {
+                            c.name: getattr(_material, c.name)
+                            for c in _material.__table__.columns
+                        },
+                    },
                     ensure_ascii=False,
                 )
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
-        if "design" in request.form:
-            _dataDict.update(json.loads(request.form["design"]))
-            if token == "":
-                return json.dumps(
-                    {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
-                )
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # process start
-                cur.execute(
-                    "SELECT * FROM tskb_material WHERE name = ?;",
-                    [safe_string(_dataDict["material"]["name"])],
-                )
-                _material = cur.fetchone()
-                if _material == None:
+            if "design" in request.form:
+                _dataDict.update(json.loads(request.form["design"]))
+                if token == "":
                     return json.dumps(
-                        {"message": "notExist", "text": "素材不明"},
+                        {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
+                    )
+                with Session() as session:
+                    _material = session.execute(
+                        select(TskbMaterial).where(
+                            TskbMaterial.name == safe_string(_dataDict["material"]["name"])
+                        )
+                    ).scalar_one_or_none()
+                    if _material is None:
+                        return json.dumps(
+                            {"message": "notExist", "text": "素材不明"},
+                            ensure_ascii=False,
+                        )
+                    if _material.userid != token["id"]:
+                        return json.dumps(
+                            {"message": "wrongPass", "text": "アクセス拒否"},
+                            ensure_ascii=False,
+                        )
+                    _material_dict = {c.name: getattr(_material, c.name) for c in _material.__table__.columns}
+                    _material_dict.update(_dataDict["material"])
+                    _material.name = safe_string(_material_dict["name"])
+                    _material.tag = safe_string(_material_dict.get("tag", ""))
+                    _material.description = safe_string(
+                        _material_dict.get("description", ""),
+                        _anti_directory_traversal=False,
+                    )
+                    _material.userid = token["id"]
+                    _material.user = _dataDict["user"]
+                    _material.passhash = _material_dict.get("passhash", _material.passhash)
+                    _material.timestamp = _material_dict.get("timestamp", _material.timestamp)
+                    _material.unit = isfloat(_material_dict.get("unit", _material.unit))
+                    if _material.unit < 1:
+                        _material.unit = 1
+                    for _field in NUM_FIELDS[1:]:
+                        setattr(
+                            _material,
+                            _field,
+                            isfloat(_material_dict.get(_field, getattr(_material, _field))),
+                        )
+                    session.commit()
+                    session.refresh(_material)
+                    return json.dumps(
+                        {
+                            "message": "processed",
+                            "material": {
+                                c.name: getattr(_material, c.name)
+                                for c in _material.__table__.columns
+                            },
+                        },
                         ensure_ascii=False,
                     )
-                if _material["userid"] != token["id"]:
-                    return json.dumps(
-                        {"message": "wrongPass", "text": "アクセス拒否"},
-                        ensure_ascii=False,
-                    )
-                _material = dict(_material)
-                _material.update(_dataDict["material"])
-                if isfloat(_material["unit"]) < 1:
-                    _material["unit"] = 1
-                cur.execute(
-                    "UPDATE tskb_material SET name = ?,tag = ?,description = ?,"
-                    "userid = ?,user = ?,passhash = ?,timestamp = ?,"
-                    "unit = ?,cost = ?,carbo = ?,fiber= ? ,protein = ?,"
-                    "fat = ?,saturated_fat = ?,n3 = ?,DHA_EPA = ?,n6 = ?,"
-                    "ca = ?,cl = ?,cr = ?,cu = ?,i = ?,fe = ?,mg = ?,mn = ?,"
-                    "mo = ?,p = ?,k = ?,se = ?,na = ?,zn = ?,va = ?,vb1 = ?,"
-                    "vb2 = ?,vb3 = ?,vb5 = ?,vb6 = ?,vb7 = ?,"
-                    "vb9 = ?,vb12 = ?,vc = ?,vd = ?,ve = ?,vk = ?,"
-                    "colin = ?,kcal = ? WHERE id = ?;",
-                    [
-                        safe_string(_material["name"]),
-                        safe_string(_material["tag"]),
-                        safe_string(
-                            _material["description"], _anti_directory_traversal=False
-                        ),
-                        token["id"],
-                        _dataDict["user"],
-                        _material["passhash"],
-                        _material["timestamp"],
-                        isfloat(_material["unit"]),
-                        isfloat(_material["cost"]),
-                        isfloat(_material["carbo"]),
-                        isfloat(_material["fiber"]),
-                        isfloat(_material["protein"]),
-                        isfloat(_material["fat"]),
-                        isfloat(_material["saturated_fat"]),
-                        isfloat(_material["n3"]),
-                        isfloat(_material["DHA_EPA"]),
-                        isfloat(_material["n6"]),
-                        isfloat(_material["ca"]),
-                        isfloat(_material["cl"]),
-                        isfloat(_material["cr"]),
-                        isfloat(_material["cu"]),
-                        isfloat(_material["i"]),
-                        isfloat(_material["fe"]),
-                        isfloat(_material["mg"]),
-                        isfloat(_material["mn"]),
-                        isfloat(_material["mo"]),
-                        isfloat(_material["p"]),
-                        isfloat(_material["k"]),
-                        isfloat(_material["se"]),
-                        isfloat(_material["na"]),
-                        isfloat(_material["zn"]),
-                        isfloat(_material["va"]),
-                        isfloat(_material["vb1"]),
-                        isfloat(_material["vb2"]),
-                        isfloat(_material["vb3"]),
-                        isfloat(_material["vb5"]),
-                        isfloat(_material["vb6"]),
-                        isfloat(_material["vb7"]),
-                        isfloat(_material["vb9"]),
-                        isfloat(_material["vb12"]),
-                        isfloat(_material["vc"]),
-                        isfloat(_material["vd"]),
-                        isfloat(_material["ve"]),
-                        isfloat(_material["vk"]),
-                        isfloat(_material["colin"]),
-                        isfloat(_material["kcal"]),
-                        _material["id"],
-                    ],
-                )
-                conn.commit()
-                cur.execute(
-                    "SELECT * FROM tskb_material WHERE id = ?;",
-                    [_material["id"]],
-                )
-                _material = cur.fetchone()
-                return json.dumps(
-                    {"message": "processed", "material": dict(_material)},
-                    ensure_ascii=False,
-                )
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
+                return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
-        if "updata" in request.files:
-            if token == "":
-                return json.dumps(
-                    {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
-                )
-            _updata = request.files["updata"]
-            _updata_dicts = json.loads(_updata.read())
-            with closing(sqlite3.connect(db_dir)) as conn:
+            if "updata" in request.files:
+                if token == "":
+                    return json.dumps(
+                        {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
+                    )
+                _updata = request.files["updata"]
+                _updata_dicts = json.loads(_updata.read())
                 for _updata_dict in _updata_dicts:
-                    conn.row_factory = sqlite3.Row
-                    cur = conn.cursor()
-                    # make record
-                    cur.execute(
-                        "SELECT * FROM tskb_material WHERE name = ?;",
-                        [safe_string(_updata_dict["name"])],
-                    )
-                    _material = cur.fetchone()
-                    if _material == None:
-                        cur.execute(
-                            "INSERT INTO tskb_material "
-                            "(name,userid,user,passhash,timestamp) "
-                            "values(?,?,?,?,?)",
-                            [
-                                safe_string(_updata_dict["name"]),
-                                token["id"],
-                                _dataDict["user"],
-                                "",
-                                int(time.time()),
-                            ],
+                    _material = session.execute(
+                        select(TskbMaterial).where(
+                            TskbMaterial.name == safe_string(_updata_dict["name"])
                         )
-                        cur.execute(
-                            "SELECT * FROM tskb_material WHERE ROWID = last_insert_rowid();",
-                            [],
+                    ).scalar_one_or_none()
+                    if _material is None:
+                        _material = TskbMaterial(
+                            name=safe_string(_updata_dict["name"]),
+                            userid=token["id"],
+                            user=_dataDict["user"],
+                            passhash="",
+                            timestamp=int(time.time()),
                         )
-                        _material = cur.fetchone()
-                    if _material["userid"] != token["id"]:
+                        session.add(_material)
+                        session.flush()
+                    if _material.userid != token["id"]:
                         continue
-                    _material = dict(_material)
-                    # upgrade record
-                    _material.update(_updata_dict)
-                    if isfloat(_material["unit"]) < 1:
-                        _material["unit"] = 1
-                    cur.execute(
-                        "UPDATE tskb_material SET name = ?,tag = ?,description = ?,"
-                        "userid = ?,user = ?,passhash = ?,timestamp = ?,"
-                        "unit = ?,cost = ?,carbo = ?,fiber= ? ,protein = ?,"
-                        "fat = ?,saturated_fat = ?,n3 = ?,DHA_EPA = ?,n6 = ?,"
-                        "ca = ?,cl = ?,cr = ?,cu = ?,i = ?,fe = ?,mg = ?,mn = ?,"
-                        "mo = ?,p = ?,k = ?,se = ?,na = ?,zn = ?,va = ?,vb1 = ?,"
-                        "vb2 = ?,vb3 = ?,vb5 = ?,vb6 = ?,vb7 = ?,"
-                        "vb9 = ?,vb12 = ?,vc = ?,vd = ?,ve = ?,vk = ?,"
-                        "colin = ?,kcal = ? WHERE id = ?;",
-                        [
-                            safe_string(_material["name"]),
-                            safe_string(_material["tag"]),
-                            safe_string(
-                                _material["description"],
-                                _anti_directory_traversal=False,
-                            ),
-                            token["id"],
-                            _dataDict["user"],
-                            _material["passhash"],
-                            _material["timestamp"],
-                            isfloat(_material["unit"]),
-                            isfloat(_material["cost"]),
-                            isfloat(_material["carbo"]),
-                            isfloat(_material["fiber"]),
-                            isfloat(_material["protein"]),
-                            isfloat(_material["fat"]),
-                            isfloat(_material["saturated_fat"]),
-                            isfloat(_material["n3"]),
-                            isfloat(_material["DHA_EPA"]),
-                            isfloat(_material["n6"]),
-                            isfloat(_material["ca"]),
-                            isfloat(_material["cl"]),
-                            isfloat(_material["cr"]),
-                            isfloat(_material["cu"]),
-                            isfloat(_material["i"]),
-                            isfloat(_material["fe"]),
-                            isfloat(_material["mg"]),
-                            isfloat(_material["mn"]),
-                            isfloat(_material["mo"]),
-                            isfloat(_material["p"]),
-                            isfloat(_material["k"]),
-                            isfloat(_material["se"]),
-                            isfloat(_material["na"]),
-                            isfloat(_material["zn"]),
-                            isfloat(_material["va"]),
-                            isfloat(_material["vb1"]),
-                            isfloat(_material["vb2"]),
-                            isfloat(_material["vb3"]),
-                            isfloat(_material["vb5"]),
-                            isfloat(_material["vb6"]),
-                            isfloat(_material["vb7"]),
-                            isfloat(_material["vb9"]),
-                            isfloat(_material["vb12"]),
-                            isfloat(_material["vc"]),
-                            isfloat(_material["vd"]),
-                            isfloat(_material["ve"]),
-                            isfloat(_material["vk"]),
-                            isfloat(_material["colin"]),
-                            isfloat(_material["kcal"]),
-                            _material["id"],
-                        ],
+                    _material_dict = {c.name: getattr(_material, c.name) for c in _material.__table__.columns}
+                    _material_dict.update(_updata_dict)
+                    _material.name = safe_string(_material_dict["name"])
+                    _material.tag = safe_string(_material_dict.get("tag", ""))
+                    _material.description = safe_string(
+                        _material_dict.get("description", ""),
+                        _anti_directory_traversal=False,
                     )
-                conn.commit()
+                    _material.userid = token["id"]
+                    _material.user = _dataDict["user"]
+                    _material.passhash = _material_dict.get("passhash", _material.passhash)
+                    _material.timestamp = _material_dict.get("timestamp", _material.timestamp)
+                    _material.unit = isfloat(_material_dict.get("unit", _material.unit))
+                    if _material.unit < 1:
+                        _material.unit = 1
+                    for _field in NUM_FIELDS[1:]:
+                        setattr(
+                            _material,
+                            _field,
+                            isfloat(_material_dict.get(_field, getattr(_material, _field))),
+                        )
+                session.commit()
                 return json.dumps(
                     {"message": "processed"},
                     ensure_ascii=False,
                 )
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
-        if "delete" in request.form:
-            _dataDict.update(json.loads(request.form["delete"]))
-            if token == "":
-                return json.dumps(
-                    {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
-                )
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # duplication and roomKey check
-                cur.execute(
-                    "DELETE FROM tskb_material WHERE id = ? AND userid = ?;",
-                    [_dataDict["materialid"], token["id"]],
-                )
-                conn.commit()
-                return json.dumps({"message": "processed"}, ensure_ascii=False)
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
+            if "delete" in request.form:
+                _dataDict.update(json.loads(request.form["delete"]))
+                if token == "":
+                    return json.dumps(
+                        {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
+                    )
+                with Session() as session:
+                    session.execute(
+                        delete(TskbMaterial).where(
+                            TskbMaterial.id == _dataDict["materialid"],
+                            TskbMaterial.userid == token["id"],
+                        )
+                    )
+                    session.commit()
+                    return json.dumps({"message": "processed"}, ensure_ascii=False)
+                return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
-        if "gathertag" in request.form:
-            _dataDict.update(json.loads(request.form["gathertag"]))
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # process start
-                cur.execute(
-                    "SELECT tag FROM tskb_combination WHERE passhash = '' ",
-                    [],
-                )
+            if "gathertag" in request.form:
+                _dataDict.update(json.loads(request.form["gathertag"]))
                 _tags = {}
-                for result in cur.fetchall():
-                    if result["tag"] == "":
+                for result in session.execute(
+                    select(TskbCombination.tag).where(TskbCombination.passhash == "")
+                ).all():
+                    _tag = result[0]
+                    if _tag == "":
                         continue
-                    if result["tag"] not in _tags:
-                        _tags[result["tag"]] = 0
-                    _tags[result["tag"]] += 1
+                    if _tag not in _tags:
+                        _tags[_tag] = 0
+                    _tags[_tag] += 1
                 _tags_list = sorted(_tags.items(), key=lambda x: x[1], reverse=True)
-                _tags = []
-                for _dict in _tags_list:
-                    _tags.append(_dict[0])
+                _tags = [_dict[0] for _dict in _tags_list]
                 return json.dumps(
                     {
                         "message": "processed",
@@ -742,266 +674,223 @@ def show(request):
                     },
                     ensure_ascii=False,
                 )
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
-        if "search" in request.form:
-            _dataDict.update(json.loads(request.form["search"]))
-            _userid = -1
-            if token != "":
-                _userid = token["id"]
-            _material_offset = 0
-            if "offset" in _dataDict:
-                _material_offset = int(_dataDict["offset"])
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # process start
+            if "search" in request.form:
+                _dataDict.update(json.loads(request.form["search"]))
+                _userid = -1
+                if token != "":
+                    _userid = token["id"]
+                _material_offset = 0
+                if "offset" in _dataDict:
+                    _material_offset = int(_dataDict["offset"])
                 match _dataDict["search_radio"]:
                     case "name":
-                        cur.execute(
-                            "SELECT * FROM tskb_combination where name LIKE ? AND "
-                            "passhash == '' LIMIT ? OFFSET ? ;",
-                            [
-                                "%" + _dataDict["keyword"] + "%",
-                                RECORD_RETURN_MAX,
-                                RECORD_RETURN_MAX * _material_offset,
-                            ],
+                        _tskb_combinations = (
+                            session.execute(
+                                select(TskbCombination)
+                                .where(
+                                    TskbCombination.name.like(
+                                        "%" + _dataDict["keyword"] + "%"
+                                    ),
+                                    TskbCombination.passhash == "",
+                                )
+                                .limit(RECORD_RETURN_MAX)
+                                .offset(RECORD_RETURN_MAX * _material_offset)
+                            )
+                            .scalars()
+                            .all()
                         )
-                        _tskb_combinations = [
-                            {key: value for key, value in dict(result).items()}
-                            for result in cur.fetchall()
-                        ]
                         return json.dumps(
                             {
                                 "message": "processed",
-                                "combinations": _tskb_combinations,
+                                "combinations": [
+                                    {c.name: getattr(r, c.name) for c in r.__table__.columns}
+                                    for r in _tskb_combinations
+                                ],
                                 "token": encoded_new_token,
                             },
                             ensure_ascii=False,
                         )
                     case "tag":
-                        cur.execute(
-                            "SELECT * FROM tskb_combination where tag LIKE ? AND "
-                            "passhash == '' LIMIT ? OFFSET ? ;",
-                            [
-                                "%" + _dataDict["keyword"] + "%",
-                                RECORD_RETURN_MAX,
-                                RECORD_RETURN_MAX * _material_offset,
-                            ],
+                        _tskb_combinations = (
+                            session.execute(
+                                select(TskbCombination)
+                                .where(
+                                    TskbCombination.tag.like(
+                                        "%" + _dataDict["keyword"] + "%"
+                                    ),
+                                    TskbCombination.passhash == "",
+                                )
+                                .limit(RECORD_RETURN_MAX)
+                                .offset(RECORD_RETURN_MAX * _material_offset)
+                            )
+                            .scalars()
+                            .all()
                         )
-                        _tskb_combinations = [
-                            {key: value for key, value in dict(result).items()}
-                            for result in cur.fetchall()
-                        ]
                         return json.dumps(
                             {
                                 "message": "processed",
-                                "combinations": _tskb_combinations,
+                                "combinations": [
+                                    {c.name: getattr(r, c.name) for c in r.__table__.columns}
+                                    for r in _tskb_combinations
+                                ],
                                 "token": encoded_new_token,
                             },
                             ensure_ascii=False,
                         )
                     case "private":
-                        cur.execute(
-                            "SELECT * FROM tskb_combination WHERE name LIKE ? "
-                            "AND userid = ? LIMIT ? OFFSET ? ;",
-                            [
-                                "%" + _dataDict["keyword"] + "%",
-                                _userid,
-                                RECORD_RETURN_MAX,
-                                RECORD_RETURN_MAX * _material_offset,
-                            ],
+                        _tskb_combinations = (
+                            session.execute(
+                                select(TskbCombination)
+                                .where(
+                                    TskbCombination.name.like(
+                                        "%" + _dataDict["keyword"] + "%"
+                                    ),
+                                    TskbCombination.userid == _userid,
+                                )
+                                .limit(RECORD_RETURN_MAX)
+                                .offset(RECORD_RETURN_MAX * _material_offset)
+                            )
+                            .scalars()
+                            .all()
                         )
-                        _tskb_combinations = [
-                            {key: value for key, value in dict(result).items()}
-                            for result in cur.fetchall()
-                        ]
                         return json.dumps(
                             {
                                 "message": "processed",
-                                "combinations": _tskb_combinations,
+                                "combinations": [
+                                    {c.name: getattr(r, c.name) for c in r.__table__.columns}
+                                    for r in _tskb_combinations
+                                ],
                                 "token": encoded_new_token,
                             },
                             ensure_ascii=False,
                         )
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
-        if "create" in request.form:
-            _dataDict.update(json.loads(request.form["create"]))
-            if token == "":
-                return json.dumps(
-                    {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
-                )
-            _passhash = ""
-            if _dataDict["privateFlag"] == True:
-                _passhash = "0"
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # check duplication
-                cur.execute(
-                    "SELECT * FROM tskb_combination WHERE name = ?;",
-                    [safe_string(_dataDict["name"])],
-                )
-                _room = cur.fetchone()
-                if _room != None:
+            if "create" in request.form:
+                _dataDict.update(json.loads(request.form["create"]))
+                if token == "":
+                    return json.dumps(
+                        {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
+                    )
+                _passhash = ""
+                if _dataDict["privateFlag"] is True:
+                    _passhash = "0"
+                _room = session.execute(
+                    select(TskbCombination).where(
+                        TskbCombination.name == safe_string(_dataDict["name"])
+                    )
+                ).scalar_one_or_none()
+                if _room is not None:
                     return json.dumps(
                         {"message": "alreadyExisted", "text": "既存の名前"},
                         ensure_ascii=False,
                     )
-                cur.execute(
-                    "INSERT INTO tskb_combination "
-                    "(name,tag,description,userid,user,passhash,timestamp,contents) "
-                    "values(?,?,?,?,?,?,?,?)",
-                    [
-                        safe_string(_dataDict["name"]),
-                        safe_string(_dataDict["tag"]),
-                        safe_string(
-                            _dataDict["description"], _anti_directory_traversal=False
-                        ),
-                        token["id"],
-                        _dataDict["user"],
-                        _passhash,
-                        int(time.time()),
-                        json.dumps({}, ensure_ascii=False),
-                    ],
+                _combination = TskbCombination(
+                    name=safe_string(_dataDict["name"]),
+                    tag=safe_string(_dataDict["tag"]),
+                    description=safe_string(
+                        _dataDict["description"], _anti_directory_traversal=False
+                    ),
+                    userid=token["id"],
+                    user=_dataDict["user"],
+                    passhash=_passhash,
+                    timestamp=int(time.time()),
+                    contents=json.dumps({}, ensure_ascii=False),
                 )
-                cur.execute(
-                    "SELECT * FROM tskb_combination WHERE ROWID = last_insert_rowid();",
-                    [],
-                )
-                _combination = cur.fetchone()
-                conn.commit()
+                session.add(_combination)
+                session.commit()
                 return json.dumps(
-                    {"message": "processed", "combination": dict(_combination)},
+                    {
+                        "message": "processed",
+                        "combination": {
+                            c.name: getattr(_combination, c.name)
+                            for c in _combination.__table__.columns
+                        },
+                    },
                     ensure_ascii=False,
                 )
-            return json.dumps({"message": "rejected"})
-
-        if "combine" in request.form:
-            _dataDict.update(json.loads(request.form["combine"]))
-            if token == "":
-                return json.dumps(
-                    {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
-                )
-            _combination = _dataDict["combination"]
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # check duplication
-                cur.execute(
-                    "SELECT * FROM tskb_combination WHERE id = ?;",
-                    [_combination["id"]],
-                )
-                _Ccombination = cur.fetchone()
-                if _Ccombination == None:
+            
+            if "combine" in request.form:
+                _dataDict.update(json.loads(request.form["combine"]))
+                if token == "":
+                    return json.dumps(
+                        {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
+                    )
+                _combination = _dataDict["combination"]
+                _Ccombination = session.get(TskbCombination, _combination["id"])
+                if _Ccombination is None:
                     return json.dumps(
                         {"message": "notExist", "text": "存在しません"},
                         ensure_ascii=False,
                     )
-                if _Ccombination["userid"] != token["id"]:
+                if _Ccombination.userid != token["id"]:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
                     )
-                _contents = json.loads(_Ccombination["contents"])
+                _contents = json.loads(_Ccombination.contents)
                 if "add_material" in _dataDict:
                     if _dataDict["add_material"] in _contents:
                         return json.dumps(
                             {"message": "alreadyExisted", "text": "既存です"},
                             ensure_ascii=False,
                         )
-                    cur.execute(
-                        "SELECT * FROM tskb_material WHERE id = ?;",
-                        [_dataDict["add_material"]],
-                    )
-                    _Cmaterial = cur.fetchone()
-                    if _Cmaterial == None:
+                    _Cmaterial = session.get(TskbMaterial, _dataDict["add_material"])
+                    if _Cmaterial is None:
                         return json.dumps(
                             {"message": "notExist", "text": "素材不明"},
                             ensure_ascii=False,
                         )
-                    if _Ccombination["passhash"] != "":
-                        if _Cmaterial["userid"] != token["id"]:
+                    if _Ccombination.passhash != "":
+                        if _Cmaterial.userid != token["id"]:
                             return json.dumps(
                                 {"message": "wrongPass", "text": "アクセス拒否"},
                                 ensure_ascii=False,
                             )
-                    _contents.update({_dataDict["add_material"]: _Cmaterial["unit"]})
+                    _contents.update({_dataDict["add_material"]: _Cmaterial.unit})
                 if "del_material" in _dataDict:
                     _contents.pop(_dataDict["del_material"])
-                cur.execute(
-                    "UPDATE tskb_combination SET userid = ?, user = ?,"
-                    "contents = ? WHERE id = ?;",
-                    [
-                        token["id"],
-                        _dataDict["user"],
-                        json.dumps(
-                            _contents,
-                            ensure_ascii=False,
-                        ),
-                        _combination["id"],
-                    ],
-                )
-                conn.commit()
+                _Ccombination.userid = token["id"]
+                _Ccombination.user = _dataDict["user"]
+                _Ccombination.contents = json.dumps(_contents, ensure_ascii=False)
+                session.commit()
                 return json.dumps(
                     {"message": "processed"},
                     ensure_ascii=False,
                 )
-            return json.dumps({"message": "rejected"})
 
-        if "update" in request.form:
-            _dataDict.update(json.loads(request.form["update"]))
-            if token == "":
-                return json.dumps(
-                    {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
-                )
-            _combination = _dataDict["combination"]
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # check duplication
-                cur.execute(
-                    "SELECT * FROM tskb_combination WHERE id = ?;",
-                    [_combination["id"]],
-                )
-                _Ccombination = cur.fetchone()
-                if _Ccombination == None:
+            if "update" in request.form:
+                _dataDict.update(json.loads(request.form["update"]))
+                if token == "":
+                    return json.dumps(
+                        {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
+                    )
+                _combination = _dataDict["combination"]
+                _Ccombination = session.get(TskbCombination, _combination["id"])
+                if _Ccombination is None:
                     return json.dumps(
                         {"message": "alreadyExisted", "text": "存在しません"},
                         ensure_ascii=False,
                     )
-                if _Ccombination["userid"] != token["id"]:
+                if _Ccombination.userid != token["id"]:
                     return json.dumps(
                         {"message": "wrongPass", "text": "アクセス拒否"},
                         ensure_ascii=False,
                     )
-                cur.execute(
-                    "UPDATE tskb_combination SET name = ?, tag = ?, description = ?,"
-                    " userid = ?, user = ?, passhash = ? ,contents = ? WHERE id = ?;",
-                    [
-                        safe_string(_combination["name"]),
-                        safe_string(_combination["tag"]),
-                        safe_string(
-                            _combination["description"], _anti_directory_traversal=False
-                        ),
-                        token["id"],
-                        _dataDict["user"],
-                        _combination["passhash"],
-                        _combination["contents"],
-                        _combination["id"],
-                    ],
+                _Ccombination.name = safe_string(_combination["name"])
+                _Ccombination.tag = safe_string(_combination["tag"])
+                _Ccombination.description = safe_string(
+                    _combination["description"], _anti_directory_traversal=False
                 )
-                conn.commit()
-                cur.execute(
-                    "SELECT * FROM tskb_combination WHERE id = ?;",
-                    [_combination["id"]],
-                )
-                _Ccombination = cur.fetchone()
+                _Ccombination.userid = token["id"]
+                _Ccombination.user = _dataDict["user"]
+                _Ccombination.passhash = _combination["passhash"]
+                _Ccombination.contents = _combination["contents"]
+                session.commit()
                 _target_dir = os.path.normpath(
                     os.path.join(
                         tmp_dir + "combination/",
-                        safe_string(_Ccombination["id"]) + ".png",
+                        safe_string(_Ccombination.id) + ".png",
                     )
                 )
                 if "delimage" in request.form:
@@ -1016,31 +905,21 @@ def show(request):
                     {"message": "processed"},
                     ensure_ascii=False,
                 )
-            return json.dumps({"message": "rejected"})
 
-        if "dlimage" in request.form:
-            _dataDict.update(json.loads(request.form["dlimage"]))
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # duplication and roomKey check
-                cur.execute(
-                    "SELECT * FROM tskb_combination WHERE id = ?;",
-                    [_dataDict["combination_id"]],
-                )
-                _combination = cur.fetchone()
-                if _combination == None:
+            if "dlimage" in request.form:
+                _dataDict.update(json.loads(request.form["dlimage"]))
+                _combination = session.get(TskbCombination, _dataDict["combination_id"])
+                if _combination is None:
                     return json.dumps(
                         {"message": "notExist", "text": "レシピ不明"},
                         ensure_ascii=False,
                     )
-                if _combination["passhash"] != "":
-                    if _combination["id"] != token["id"]:
+                if _combination.passhash != "":
+                    if _combination.id != token["id"]:
                         return json.dumps(
                             {"message": "wrongPass", "text": "アクセス拒否"},
                             ensure_ascii=False,
                         )
-                # process start
                 _target_file = os.path.normpath(
                     os.path.join(
                         tmp_dir + "combination/",
@@ -1055,31 +934,26 @@ def show(request):
                 return json.dumps(
                     {"message": "notExist", "text": "ファイル無"}, ensure_ascii=False
                 )
-            return json.dumps({"message": "rejected"}, ensure_ascii=False)
 
-        if "destroy" in request.form:
-            _dataDict.update(json.loads(request.form["destroy"]))
-            if token == "":
-                return json.dumps(
-                    {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
+            if "destroy" in request.form:
+                _dataDict.update(json.loads(request.form["destroy"]))
+                if token == "":
+                    return json.dumps(
+                        {"message": "tokenNothing", "text": "JWT未提出"}, ensure_ascii=False
+                    )
+                _combination = session.get(
+                    TskbCombination, _dataDict["combination_id"]
                 )
-            with closing(sqlite3.connect(db_dir)) as conn:
-                conn.row_factory = sqlite3.Row
-                cur = conn.cursor()
-                # check duplication
-                cur.execute(
-                    "SELECT * FROM tskb_combination WHERE id = ?;",
-                    [_dataDict["combination_id"]],
-                )
-                _combination = cur.fetchone()
-                if _combination == None:
+                if _combination is None:
                     return json.dumps(
                         {"message": "notExist", "text": "レシピ不明"},
                         ensure_ascii=False,
                     )
-                cur.execute(
-                    "DELETE FROM tskb_combination WHERE id = ? AND userid = ?;",
-                    [_dataDict["combination_id"], token["id"]],
+                session.execute(
+                    delete(TskbCombination).where(
+                        TskbCombination.id == _dataDict["combination_id"],
+                        TskbCombination.userid == token["id"],
+                    )
                 )
                 _target_dir = os.path.normpath(
                     os.path.join(
@@ -1089,10 +963,10 @@ def show(request):
                 )
                 if os.path.exists(_target_dir):
                     os.remove(_target_dir)
-                conn.commit()
+                session.commit()
                 return json.dumps({"message": "processed"}, ensure_ascii=False)
-            return json.dumps({"message": "rejected", "text": "不明なエラー"})
 
+            return json.dumps({"message": "rejected", "text": "不明なエラー"})
     return "404: nof found → main.html", 404
 
 
