@@ -19,9 +19,9 @@ export const AppMain = () => {
     const [tmpRoomKey, setTmpRoomKey] = useState("")
     const [tmpRoom, setTmpRoom] = useState("")
     const [tmpText, setTmpText] = useState("")
-    const [tmpAttachment, setTmpAttachment] = useState(null)
+    const [tmpAttachment, setTmpAttachment] = useState<File | null>(null)
     const [tmpTargetId, setTmpTargetId] = useState(-1)
-    const [contents, setContents] = useState([])
+    const [contents, setContents] = useState<any[]>([])
 
     useEffect(() => {
         if (room["room"] == "") searchRoom()
@@ -49,7 +49,7 @@ export const AppMain = () => {
     const enterRoom = (_setContentsInitialze = true) => {
         setTmpRoomKey(""); setTmpRoom(""); setTmpText(""); setTmpAttachment(null); setTmpTargetId(-1);
         if (_setContentsInitialze) setContents([])
-        $('#inputConsoleAttachment').val(null)
+        $('#inputConsoleAttachment').val("")
     }
     const exitRoom = (_setContentsInitialze = true) => {
         setRoom({ "id": -1, "user": "", "userid": -1, "room": "", "timestamp": 0, "passhash": "" });
@@ -519,12 +519,14 @@ export const AppMain = () => {
                     </h5>
                     {contents[i]["passhash"] == "" ?
                         <button className="btn btn-outline-primary rounded-pill"
-                            onClick={(evt: any) => { fetchChat(evt.target.value) }} value={contents[i]["id"]}>
+                            onClick={(evt: React.MouseEvent<HTMLButtonElement>) => {
+                                fetchChat(Number(evt.currentTarget.value))
+                            }} value={contents[i]["id"]}>
                             <i className="fa-solid fa-right-to-bracket mx-1" style={{ pointerEvents: "none" }}></i>入室
                         </button> :
                         <button className="btn btn-outline-dark rounded-pill"
-                            onClick={(evt: any) => {
-                                setTmpTargetId(evt.target.value)
+                            onClick={(evt: React.MouseEvent<HTMLButtonElement>) => {
+                                setTmpTargetId(Number(evt.currentTarget.value))
                                 $('#roomInterModal').modal('show')
                             }} value={contents[i]["id"]}>
                             <i className="fa-solid fa-lock mx-1" style={{ pointerEvents: "none" }}></i>入室
@@ -532,8 +534,8 @@ export const AppMain = () => {
                     }
                     {contents[i]["userid"] == userId ?
                         <button className="btn btn-outline-danger rounded-pill"
-                            onClick={(evt: any) => {
-                                setTmpTargetId(evt.target.value)
+                            onClick={(evt: React.MouseEvent<HTMLButtonElement>) => {
+                                setTmpTargetId(Number(evt.currentTarget.value))
                                 $('#destroyRoomModal').modal('show');
 
                             }} value={contents[i]["id"]}>
@@ -627,8 +629,8 @@ export const AppMain = () => {
                         {
                             contents[i]["userid"] == userId ?
                                 <button className="btn btn-outline-danger rounded-pill"
-                                    onClick={(evt: any) => {
-                                        deleteChat(evt.target.name);
+                                    onClick={(evt: React.MouseEvent<HTMLButtonElement>) => {
+                                        deleteChat(Number(evt.currentTarget.name));
                                     }} name={contents[i]["id"]}>
                                     <i className="far fa-trash-alt mx-1" style={{ pointerEvents: "none" }}></i>Delete
                                 </button> : <div></div>}
@@ -643,16 +645,16 @@ export const AppMain = () => {
                 _tmpData.push(
                     <div className="col-12 col-md-3 border d-flex justify-content-end">
                         <button className="btn btn-outline-primary rounded-pill"
-                            onClick={(evt: any) => {
-                                downloadChat(evt.target.value, evt.target.name);
+                            onClick={(evt: React.MouseEvent<HTMLButtonElement>) => {
+                                downloadChat(Number(evt.currentTarget.value), evt.currentTarget.name);
                             }} value={contents[i]["id"]} name={contents[i]["text"]}>
                             <i className="fa-solid fa-download mx-1" style={{ pointerEvents: "none" }}></i>Download
                         </button>
                         {
                             contents[i]["userid"] == userId ?
                                 <button className="btn btn-outline-danger rounded-pill"
-                                    onClick={(evt: any) => {
-                                        deleteChat(evt.target.name);
+                                    onClick={(evt: React.MouseEvent<HTMLButtonElement>) => {
+                                        deleteChat(Number(evt.currentTarget.name));
                                     }} name={contents[i]["id"]}>
                                     <i className="far fa-trash-alt mx-1" style={{ pointerEvents: "none" }}></i>Delete
                                 </button> : <div></div>
@@ -710,7 +712,9 @@ export const AppMain = () => {
                     <div className="input-group">
                         <input type="file" className="form-control" placeholder="attachment file"
                             id="inputConsoleAttachment"
-                            onChange={(evt) => { setTmpAttachment(evt.target.files[0]) }} />
+                            onChange={(evt: React.ChangeEvent<HTMLInputElement>) => {
+                                setTmpAttachment(evt.currentTarget.files?.[0] ?? null)
+                            }} />
                         {remarkButton()}
                     </div>
                 </div>
