@@ -7,7 +7,6 @@
         "jsx": "react-jsx",
         "moduleResolution": "Bundler",
         "allowSyntheticDefaultImports": true,
-        "types": ["jquery", "webpack-env"],
     },
     "include": [
         "./**/*",
