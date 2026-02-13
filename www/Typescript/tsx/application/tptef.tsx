@@ -19,9 +19,9 @@ export const AppMain = () => {
     const [tmpRoomKey, setTmpRoomKey] = useState("")
     const [tmpRoom, setTmpRoom] = useState("")
     const [tmpText, setTmpText] = useState("")
-    const [tmpAttachment, setTmpAttachment] = useState(null)
+    const [tmpAttachment, setTmpAttachment] = useState<File | null>(null)
     const [tmpTargetId, setTmpTargetId] = useState(-1)
-    const [contents, setContents] = useState([])
+    const [contents, setContents] = useState<any[]>([])
 
     useEffect(() => {
         if (room["room"] == "") searchRoom()
@@ -49,7 +49,7 @@ export const AppMain = () => {
     const enterRoom = (_setContentsInitialze = true) => {
         setTmpRoomKey(""); setTmpRoom(""); setTmpText(""); setTmpAttachment(null); setTmpTargetId(-1);
         if (_setContentsInitialze) setContents([])
-        $('#inputConsoleAttachment').val(null)
+        $('#inputConsoleAttachment').val('')
     }
     const exitRoom = (_setContentsInitialze = true) => {
         setRoom({ "id": -1, "user": "", "userid": -1, "room": "", "timestamp": 0, "passhash": "" });
@@ -710,7 +710,8 @@ export const AppMain = () => {
                     <div className="input-group">
                         <input type="file" className="form-control" placeholder="attachment file"
                             id="inputConsoleAttachment"
-                            onChange={(evt) => { setTmpAttachment(evt.target.files[0]) }} />
+                            onChange={(evt) => { setTmpAttachment(evt.target.files?.[0] ?? null) }}
+ />
                         {remarkButton()}
                     </div>
                 </div>
