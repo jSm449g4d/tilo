@@ -19,7 +19,7 @@ export const AppMain = () => {
     const [tmpRoomKey, setTmpRoomKey] = useState("")
     const [tmpRoom, setTmpRoom] = useState("")
     const [tmpTargetRoom, setTmpTargetRoom] = useState({ "id": -1, "user": "", "userid": -1, "room": "", "timestamp": 0, "passhash": "" })
-    const [contents, setContents] = useState([])
+    const [contents, setContents] = useState<any>([])
     const AppDispatch = useAppDispatch()
 
     useEffect(() => {

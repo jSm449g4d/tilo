@@ -11,11 +11,11 @@ import {
 
 
 export const MTable = () => {
-    const [contents, setContents] = useState([])
-    const [requirements, setRequirements] = useState([])
+    const [contents, setContents] = useState<any>([])
+    const [requirements, setRequirements] = useState<any>([])
     const [requirementNumber, setRequirementNumber] = useState(0)
     //tmpAttachment -1: delete, 1: alreadyExist null: noImage, else: uploadImage
-    const [tmpAttachment, setTmpAttachment] = useState(null)
+    const [tmpAttachment, setTmpAttachment] = useState<any>(null)
     const [tmpCombination, setTmpCombination] = useState({
         "id": -1, "name": "", "tag": "", "description": "", "userid": -1, "user": "",
         "passhash": "", "timestamp": 0, "contents": "{}", "img": ""
@@ -449,8 +449,8 @@ export const MTable = () => {
                                 <input type="file" className="form-control"
                                     accept="image/*" placeholder='画像のアップロード'
                                     onChange={(evt) => {
-                                        setTmpAttachment(evt.target.files[0])
-                                        if (!evt.target.files[0]) return
+                                        setTmpAttachment(evt.target.files?.[0])
+                                        if (!evt.target.files?.[0]) return
                                         var _reader = new FileReader()
                                         _reader.onload = () => {
                                             $("#MTimage").attr({ "src": _reader.result })

@@ -7,12 +7,12 @@ import { useAppSelector, useAppDispatch } from '../../../components/store'
 
 
 export const EMTable = () => {
-    const [contents, setContents] = useState([])
+    const [contents, setContents] = useState<any>([])
     const [tmpKeyword, setTmpKeyword] = useState("")
     const [tmpOffset, setTmpOffset] = useState(0)
-    const [tmpAttachment, setTmpAttachment] = useState(null)
+    const [tmpAttachment, setTmpAttachment] = useState<any>(null)
     const [tmpSearchRadio, setTmpSearchRadio] = useState("name")
-    const [tmpListTags, setTmpListTags] = useState([])
+    const [tmpListTags, setTmpListTags] = useState<any>([])
     const [tmpName, setTmpName] = useState("")
     const [tmpTag, setTmpTag] = useState("")
     const [tmpDescription, setTmpDescription] = useState("")
@@ -248,7 +248,7 @@ export const EMTable = () => {
                             </div>
                             <div className="input-group">
                                 <input type="file" className="form-control" placeholder="attachment file"
-                                    onChange={(evt) => { setTmpAttachment(evt.target.files[0]) }} />
+                                    onChange={(evt) => { setTmpAttachment(evt.target.files?.[0]) }} />
                                 <button className="btn btn-warning" type="button"
                                     onClick={() => updataMaterial()}>
                                     <i className="fa-solid fa-arrow-up-right-from-square mx-1" style={{ pointerEvents: "none" }} />

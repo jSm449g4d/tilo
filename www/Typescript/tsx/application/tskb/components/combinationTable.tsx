@@ -7,15 +7,15 @@ import { useAppSelector, useAppDispatch } from '../../../components/store'
 
 
 export const CTable = () => {
-    const [contents, setContents] = useState([])
+    const [contents, setContents] = useState<any>([])
     const [tmpKeyword, setTmpKeyword] = useState("")
     const [tmpOffset, setTmpOffset] = useState(0)
-    const [tmpListTags, setTmpListTags] = useState([])
+    const [tmpListTags, setTmpListTags] = useState<any>([])
     const [tmpSearchRadio, setTmpSearchRadio] = useState("name")
     const [tmpName, setTmpName] = useState("")
     const [tmpTag, setTmpTag] = useState("")
     const [tmpDescription, setTmpDescription] = useState("")
-    const [tmpPrivateFlag, setTmpPrivateFlag] = useState(false)
+    const [tmpPrivateFlag, setTmpPrivateFlag] = useState<any>(false)
 
     const user = useAppSelector((state) => state.account.user)
     const userId = useAppSelector((state) => state.account.id)

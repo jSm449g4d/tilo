@@ -405,9 +405,9 @@ export const AppWidgetHead = () => {
     const _switchApp = (application: string) => {
         if (stopf5.check("_switchapp", 50, true) == false) return; // To prevent high freq access
         import("../application/" + application).then((module) => {
-            const appMain = createRoot(document.getElementById("appMain"))
+            const appMain = createRoot(document.getElementById("appMain")!)
             appMain.render(<Provider store={store}><module.AppMain /></Provider>)
-            const titlelogo = createRoot(document.getElementById("titlelogo"))
+            const titlelogo = createRoot(document.getElementById("titlelogo")!)
             titlelogo.render(<Provider store={store}><module.titleLogo /></Provider>)
         })
     }
@@ -422,7 +422,7 @@ export const AppWidgetHead = () => {
                                 <i className="fas fa-home mx-1" style={{ pointerEvents: "none" }}></i>ホームページ
                             </a></li>
                             <li><a className="dropdown-item btn-col" style={{ fontSize: "1.5em" }}
-                                onClick={() => { _switchApp("tptef") }}>
+                                onClick={() => { _switchApp("tptef/main") }}>
                                 <i className="far fa-comments mx-1" style={{ pointerEvents: "none" }}></i>チャット α版{"(工事中)"}
                             </a></li>
                             <li><a className="dropdown-item btn-col" style={{ fontSize: "1.5em" }}

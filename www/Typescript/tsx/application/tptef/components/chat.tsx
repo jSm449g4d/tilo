@@ -10,8 +10,8 @@ import "../../../stylecheets/style.sass";
 
 export const CTable = () => {
     const [tmpText, setTmpText] = useState("")
-    const [tmpAttachment, setTmpAttachment] = useState(null)
-    const [contents, setContents] = useState([])
+    const [tmpAttachment, setTmpAttachment] = useState<any>(null)
+    const [contents, setContents] = useState<any>([])
     const user = useAppSelector((state) => state.account.user)
     const userId = useAppSelector((state) => state.account.id)
     const token = useAppSelector((state) => state.account.token)
@@ -396,7 +396,7 @@ export const CTable = () => {
                     <div className="input-group">
                         <input type="file" className="form-control" placeholder="attachment file"
                             id="inputConsoleAttachment"
-                            onChange={(evt) => { setTmpAttachment(evt.target.files[0]) }} />
+                            onChange={(evt) => { setTmpAttachment(evt.target.files?.[0]) }} />
                         {remarkButton()}
                     </div>
                 </div>

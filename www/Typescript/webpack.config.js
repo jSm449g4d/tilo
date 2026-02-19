@@ -1,8 +1,7 @@
 const path = require("path");
-const entry = require("webpack-glob-entry");
 
 module.exports = {
-  entry: entry("./tsx/index.tsx"),
+  entry: path.resolve(__dirname, "./tsx/index.tsx"),
   output: {
     path: path.resolve(__dirname, "../"),
     filename: "./html/static/src/main.js",
