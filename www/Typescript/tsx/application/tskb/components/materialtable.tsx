@@ -80,7 +80,7 @@ export const MTable = () => {
         }
         for (let _key in _nutrition) { _nutrition[_key] = toSignificantDigits(_nutrition[_key]) }
         setTmpTotalNutorition(_nutrition)
-    }, [tmpCombination, tmpTotalNutorition])
+    }, [tmpCombination, contents])
     const initCreateForm = () => {
         setTmpName(combination["name"])
         setTmpTag("Combination")
@@ -532,7 +532,7 @@ export const MTable = () => {
                 },
                 {
                     name: "M",
-                    栄養価: _mae(["ca", "v", "cr", "cu", "i", "fe", "mg", "mn",
+                    栄養価: _mae(["ca","cl", "cr", "cu", "i", "fe", "mg", "mn",
                         "mo", "p", "k", "se", "na", "zn",]),
                     一日摂取基準: 1,
                 },
