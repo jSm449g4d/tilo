@@ -494,11 +494,11 @@ export const AppWidgetHead = () => {
                             </a></li>
                             <li><a className="dropdown-item btn-col" style={{ fontSize: "1.5em" }}
                                 onClick={() => { _switchApp("tptef/main") }}>
-                                <i className="far fa-comments mx-1" style={{ pointerEvents: "none" }}></i>チャット α版{"(工事中)"}
+                                <i className="far fa-comments mx-1" style={{ pointerEvents: "none" }}></i>チャット α版
                             </a></li>
                             <li><a className="dropdown-item btn-col" style={{ fontSize: "1.5em" }}
-                                onClick={() => { _switchApp("tskb/main") }}>
-                                <i className="fa-solid fa-book mx-1" style={{ pointerEvents: "none" }}></i>栄養計算 β版
+                                onClick={() => {}}>{/**() => { _switchApp("tskb/main") } */}
+                                <i className="fa-solid fa-book mx-1" style={{ pointerEvents: "none" }}></i>栄養計算 β版{"(工事中)"}
                             </a></li>
                         </ul>
                         <button className="btn btn-outline-primary dropdown-toggle"
