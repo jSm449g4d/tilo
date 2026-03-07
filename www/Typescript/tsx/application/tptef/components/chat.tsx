@@ -1,18 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { MutableRefObject, useState, useEffect } from "react";
 
 import { jpclock, Unixtime2String } from "../../../components/util";
 import { HIModal, CIModal } from "../../../components/imodals";
-import { accountSetState, tptefSetState, tptefStartTable } from '../../../components/slice'
-import { useAppSelector, useAppDispatch } from '../../../components/store'
+import { tptefStartTable } from "../../../components/slice";
+import { useAppSelector, useAppDispatch } from "../../../components/store";
 import "../../../stylecheets/style.sass";
 
 
-
-export const CTable = () => {
+export const CTable = ({ wsRef, wsReady }: any) => {
     const [tmpText, setTmpText] = useState("")
-    const [tmpAttachment, setTmpAttachment] = useState<any>(null)
+    const [tmpAttachment, setTmpAttachment] = useState<File | null>(null)
     const [contents, setContents] = useState<any>([])
-    const user = useAppSelector((state) => state.account.user)
     const userId = useAppSelector((state) => state.account.id)
     const token = useAppSelector((state) => state.account.token)
     const roomKey = useAppSelector((state) => state.account.roomKey)
@@ -22,220 +20,122 @@ export const CTable = () => {
     const dispatch = useAppDispatch()
     const xhrTimeout = 3000
     const fileSizeMax = 1024 * 1024 * 2
-    const xhrDelay = 100
 
     // jpclock (decoration)
     const [jpclockNow, setJpclockNow] = useState("")
     useEffect(() => {
-        const _intervalId = setInterval(() => setJpclockNow(jpclock()), 500);
-        return () => clearInterval(_intervalId);
-    }, []);
+        const _intervalId = setInterval(() => setJpclockNow(jpclock()), 500)
+        return () => clearInterval(_intervalId)
+    }, [])
 
     useEffect(() => {
-        if (tableStatus == "CTable") setTimeout(() => fetchChat(), xhrDelay)
-        initSubmitForm()
-    }, [reloadFlag, userId])
-    const initSubmitForm = () => {
         setTmpText("")
         setTmpAttachment(null)
-    }
-    const stringForSend = (_additionalDict: {} = {}) => {
-        const _sendDict = Object.assign(
-            {
-                "token": token, "user": user,
-            }, _additionalDict)
-        return (JSON.stringify(_sendDict))
-    }
+    }, [reloadFlag, userId])
+
+    useEffect(() => {
+        const sortSetContents = (_contents: any = []) => {
+            const _sortContents = (a: any, b: any) => a["timestamp"] - b["timestamp"]
+            setContents([..._contents].sort(_sortContents))
+        }
+        if (tableStatus != "CTable") return
+        if (!wsRef.current || !wsReady) return
+        if (wsRef.current.readyState !== WebSocket.OPEN) return
+        const formData = { "token": token, roomKey: roomKey, "info": "", "fetch": "", "roomid": room["id"] }
+        wsRef.current.send(JSON.stringify(formData))
+        const onMessage = (e: MessageEvent) => {
+            const msg = JSON.parse(e.data)
+            if (!Array.isArray(msg["chats"])) return
+            if (msg.message == "processed") { sortSetContents(msg["chats"]) }
+        }
+        wsRef.current.addEventListener("message", onMessage)
+        return () => { wsRef.current?.removeEventListener("message", onMessage) }
+    }, [wsReady, tableStatus, token, roomKey])
 
     // fetchAPI
-    const fetchChat = (_roomid = room["id"], _roomKey = roomKey) => {
-        const sortSetContents = (_contents: any = []) => {
-            const _sortContents = (a: any, b: any) => { return a["timestamp"] - b["timestamp"] }
-            setContents(_contents.sort(_sortContents))
-        }
-        const headers = new Headers();
+    const postJson = (key: string, body: object, onProcessed?: (resJ: any) => void,) => {
         const formData = new FormData();
-        formData.append("info", stringForSend())
-        formData.append("fetch", JSON.stringify({ "roomid": _roomid, "roomKey": _roomKey }))
-        const request = new Request("/tptef/main.py", {
-            method: 'POST',
-            headers: headers,
+        formData.append("info", JSON.stringify({ "token": token, roomKey: roomKey, roomid: room["id"] }));
+        formData.append(key, JSON.stringify(body));
+        fetch(new Request("/tptef/main.py", {
+            method: "POST",
             body: formData,
-            signal: AbortSignal.timeout(xhrTimeout)
-        });
-        fetch(request)
+            signal: AbortSignal.timeout(xhrTimeout),
+        }))
             .then(response => response.json())
-            .then(resJ => {
+            .then((resJ: any) => {
                 switch (resJ["message"]) {
-                    case "processed":
-                        sortSetContents(resJ["chats"])
-                        dispatch(accountSetState({ token: resJ["token"] }));
-                        break;
+                    case "processed": { onProcessed?.(resJ); break; }
                     default: {
                         if ("text" in resJ) CIModal(resJ["text"]);
                         break;
                     }
                 }
             })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
-    }
+            .catch((e) => CIModal("fetchAPI_Error", e.message));
+    };
+
     const uploadChat = () => {
+        if (tmpAttachment == null) return
         if (fileSizeMax <= tmpAttachment.size) {
-            CIModal("ファイルサイズが大きすぎます(" + String(fileSizeMax) + " byte)未満")
+            CIModal("Too huge filesize", "plz filesize < " + String(fileSizeMax) + " [byte]")
             return
         }
-        const headers = new Headers();
-        const formData = new FormData();
-        formData.append("info", stringForSend())
+        const formData = new FormData()
+        formData.append("info", JSON.stringify({ "token": token, roomKey: roomKey, roomid: room["id"] }))
         formData.append("upload", tmpAttachment, tmpAttachment.name)
         const request = new Request("/tptef/main.py", {
-            method: 'POST',
-            headers: headers,
+            method: "POST",
             body: formData,
             signal: AbortSignal.timeout(xhrTimeout)
-        });
+        })
         fetch(request)
             .then(response => response.json())
             .then(resJ => {
-                switch (resJ["message"]) {
-                    case "processed":
-                        setTimeout(() => fetchChat(), xhrDelay)
-                        break;
-                    default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
-                        break;
-                    }
-                }
+                if (resJ["message"] != "processed") { if ("text" in resJ) CIModal("Exception", resJ["text"]) }
             })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
+            .catch(error => { CIModal("fetchAPI_Error", error.message) })
+        setTmpAttachment(null)
     }
-    const remarkChat = () => {
-        const headers = new Headers();
-        const formData = new FormData();
-        formData.append("info", stringForSend())
-        formData.append("remark", JSON.stringify({}))
-        const request = new Request("/tptef/main.py", {
-            method: 'POST',
-            headers: headers,
-            body: formData,
-            signal: AbortSignal.timeout(xhrTimeout)
-        });
-        fetch(request)
-            .then(response => response.json())
-            .then(resJ => {
-                switch (resJ["message"]) {
-                    case "processed":
-                        setTimeout(() => fetchChat(), xhrDelay)
-                        break;
-                    default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
-                        break;
-                    }
-                }
-            })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
-    }
-    const deleteChat = (_id: number) => {
-        const headers = new Headers();
-        const formData = new FormData();
-        formData.append("info", stringForSend())
-        formData.append("delete", JSON.stringify({ "chatid": _id }))
-        const request = new Request("/tptef/main.py", {
-            method: 'POST',
-            headers: headers,
-            body: formData,
-            signal: AbortSignal.timeout(xhrTimeout)
-        });
-        fetch(request)
-            .then(response => response.json())
-            .then(resJ => {
-                switch (resJ["message"]) {
-                    case "processed":
-                        setTimeout(() => fetchChat(), xhrDelay)
-                        break;
-                    default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
-                        break;
-                    }
-                }
-            })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
-    }
+
     const downloadChat = (_id: number, _fileName: string = "", _asAttachment = true) => {
-        const headers = new Headers();
-        const formData = new FormData();
-        formData.append("info", stringForSend())
+        const formData = new FormData()
+        formData.append("info", JSON.stringify({ "token": token, roomKey: roomKey, roomid: room["id"] }))
         formData.append("download", JSON.stringify({
             "chatid": _id, "filename": _fileName, "as_attachment": _asAttachment
         }))
         const request = new Request("/tptef/main.py", {
-            method: 'POST',
-            headers: headers,
+            method: "POST",
             body: formData,
             signal: AbortSignal.timeout(xhrTimeout)
-        });
+        })
         fetch(request)
             .then(response => response.blob())
             .then(blob => {
-                var a = document.createElement("a");
-                a.href = window.URL.createObjectURL(blob);
-                document.body.appendChild(a);
-                a.setAttribute("style", "display: none");
-                a.setAttribute("download", _fileName);
-                a.click();
-                setTimeout(() => fetchChat(), xhrDelay)
+                const _url = window.URL.createObjectURL(blob)
+                const a = document.createElement("a")
+                a.href = _url
+                document.body.appendChild(a)
+                a.setAttribute("style", "display: none")
+                a.setAttribute("download", _fileName)
+                a.click()
+                a.remove()
+                window.URL.revokeObjectURL(_url)
             })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
+            .catch(error => { CIModal("fetchAPI_Error", error.message) })
     }
+
+    const remarkChat = () => { postJson("remark", { "text": tmpText }); setTmpText(""); }
+
+    const deleteChat = (_id: number) => { postJson("delete", { "chatid": _id }) }
+
     const destroyRoom = () => {
-        const headers = new Headers();
-        const formData = new FormData();
-        formData.append("info", stringForSend())
-        formData.append("destroy", JSON.stringify({ "roomid": room["id"] }))
-        const request = new Request("/tptef/main.py", {
-            method: 'POST',
-            headers: headers,
-            body: formData,
-            signal: AbortSignal.timeout(xhrTimeout)
-        });
-        fetch(request)
-            .then(response => response.json())
-            .then(resJ => {
-                switch (resJ["message"]) {
-                    case "processed":
-                        dispatch(tptefStartTable({ tableStatus: "RTable" }))
-                        break;
-                    default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
-                        break;
-                    }
-                }
-            })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
+        postJson("destroy", { "roomid": room["id"] }, () => { dispatch(tptefStartTable({ tableStatus: "RTable" })) })
     }
-    //modal
+
     const destroyRoomModal = () => {
         return (
-            <div className="modal fade" id="destroyRoomModal"
-                aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div className="modal fade" id="destroyRoomModal" aria-hidden="true">
                 <div className="modal-dialog">
                     <div className="modal-content">
                         <div className="modal-header">
@@ -255,25 +155,22 @@ export const CTable = () => {
             </div>
         )
     }
-    // app
+
     const chatTopForm = () => {
         return (
             <div>
                 <div className="input-group d-flex justify-content-center align-items-center my-1">
                     <button className="btn btn-outline-success btn-lg" type="button"
-                        onClick={() => { fetchChat() }}>
+                        onClick={() => { }}>
                         <i className="fa-solid fa-rotate-right mx-1" style={{ pointerEvents: "none" }} />
                     </button>
-                    <button className="btn btn-outline-dark btn-lg" type="button"
-                        disabled>
+                    <button className="btn btn-outline-dark btn-lg" type="button" disabled>
                         <i className="far fa-user mx-1"></i>{room["user"]}
                     </button>
-                    <input className="flex-fill form-control form-control-lg" type="text" value={room["room"]}
-                        disabled>
-                    </input >
+                    <input className="flex-fill form-control form-control-lg" type="text" value={room["room"]} disabled />
                     {room["userid"] == userId ?
                         <button className="btn btn-outline-danger btn-lg" type="button"
-                            onClick={() => { $("#destroyRoomModal").modal('show') }}>
+                            onClick={() => { $("#destroyRoomModal").modal("show") }}>
                             <i className="far fa-trash-alt mx-1 " style={{ pointerEvents: "none" }}></i>部屋削除
                         </button> : <div />
                     }
@@ -284,16 +181,17 @@ export const CTable = () => {
                     </button>
                 </div></div>)
     }
+
     const chatTable = () => {
-        const _tmpRecord = [];
-        for (var i = 0; i < contents.length; i++) {
-            var _style = { background: "linear-gradient(rgba(60,60,60,0), rgba(60,60,60,0.2))" }
-            if (contents[i]["mode"] == "attachment")
+        const _tmpRecord = []
+        for (let i = 0; i < contents.length; i++) {
+            let _style = { background: "linear-gradient(rgba(60,60,60,0), rgba(60,60,60,0.2))" }
+            if (contents[i]["mode"] == "attachment") {
                 _style = { background: "linear-gradient(rgba(60,60,60,0), rgba(60,60,150,0.2))" }
-            const _tmpData = [];
-            // text
+            }
+            const _tmpData = []
             _tmpData.push(
-                <div className="col-12 border d-flex" style={_style}>
+                <div className="col-12 border d-flex" style={_style} key={`head-${contents[i]["id"]}`}>
                     <h5 className="me-auto">
                         <i className="far fa-user mx-1"></i>{contents[i]["user"]}
                     </h5>
@@ -301,67 +199,58 @@ export const CTable = () => {
                 </div>)
             if (contents[i]["mode"] == "text") {
                 _tmpData.push(
-                    <div className="col-12 col-md-9 border"><div className="text-center">
+                    <div className="col-12 col-md-9 border" key={`text-${contents[i]["id"]}`}><div className="text-center">
                         {contents[i]["text"]}
                     </div></div>)
                 _tmpData.push(
-                    <div className="col-12 col-md-3 border"><div className="text-center">
-                        {
-                            contents[i]["userid"] == userId ?
-                                <button className="btn btn-outline-danger rounded-pill"
-                                    onClick={(evt: any) => {
-                                        deleteChat(evt.target.name);
-                                    }} name={contents[i]["id"]}>
-                                    <i className="far fa-trash-alt mx-1" style={{ pointerEvents: "none" }}></i>Delete
-                                </button> : <div></div>}
+                    <div className="col-12 col-md-3 border" key={`action-${contents[i]["id"]}`}><div className="text-center">
+                        {contents[i]["userid"] == userId ?
+                            <button className="btn btn-outline-danger rounded-pill"
+                                onClick={() => { deleteChat(contents[i]["id"]) }}>
+                                <i className="far fa-trash-alt mx-1" style={{ pointerEvents: "none" }}></i>Delete
+                            </button> : <div></div>}
                     </div></div>)
             }
-            // file
             if (contents[i]["mode"] == "attachment") {
                 _tmpData.push(
-                    <div className="col-12 col-md-9 border"><div className="text-center">
+                    <div className="col-12 col-md-9 border" key={`file-${contents[i]["id"]}`}><div className="text-center">
                         {contents[i]["text"]}
                     </div></div>)
                 _tmpData.push(
-                    <div className="col-12 col-md-3 border d-flex justify-content-end">
+                    <div className="col-12 col-md-3 border d-flex justify-content-end" key={`download-${contents[i]["id"]}`}>
                         <button className="btn btn-outline-primary rounded-pill"
-                            onClick={(evt: any) => {
-                                downloadChat(evt.target.value, evt.target.name);
-                            }} value={contents[i]["id"]} name={contents[i]["text"]}>
+                            onClick={() => { downloadChat(contents[i]["id"], contents[i]["text"]) }}>
                             <i className="fa-solid fa-download mx-1" style={{ pointerEvents: "none" }}></i>Download
                         </button>
-                        {
-                            contents[i]["userid"] == userId ?
-                                <button className="btn btn-outline-danger rounded-pill"
-                                    onClick={(evt: any) => {
-                                        deleteChat(evt.target.name);
-                                    }} name={contents[i]["id"]}>
-                                    <i className="far fa-trash-alt mx-1" style={{ pointerEvents: "none" }}></i>Delete
-                                </button> : <div></div>
-                        }
+                        {contents[i]["userid"] == userId ?
+                            <button className="btn btn-outline-danger rounded-pill"
+                                onClick={() => { deleteChat(contents[i]["id"]) }}>
+                                <i className="far fa-trash-alt mx-1" style={{ pointerEvents: "none" }}></i>Delete
+                            </button> : <div></div>}
                     </div>)
             }
             _tmpRecord.push(
-                <div style={{
+                <div key={contents[i]["id"]} style={{
                     border: "1px inset silver", borderRadius: "5px", marginBottom: "3px", boxShadow: "2px 2px 1px rgba(60,60,60,0.2)"
                 }}><div className="m-1 row">{_tmpData}</div></div>)
         }
         return (<div className="">{_tmpRecord}</div>)
     }
+
     const inputConsole = () => {
         const remarkButton = () => {
-            if (tmpAttachment == null && tmpText == "")
+            if (tmpAttachment == null && tmpText == "") {
                 return (
                     <button className="btn btn-dark " disabled>
                         <i className="far fa-comment-dots mx-1" style={{ pointerEvents: "none" }}></i>要入力
                     </button>
                 )
+            }
             return (
                 <button className="btn btn-success"
                     onClick={() => {
                         if (tmpText != "") remarkChat()
                         if (tmpAttachment != null) uploadChat()
-                        initSubmitForm()
                     }}>
                     <i className="far fa-comment-dots mx-1" style={{ pointerEvents: "none" }}></i>送信
                 </button>
@@ -375,10 +264,8 @@ export const CTable = () => {
                 </div>
                 <div className="col-12 my-1">
                     <div className="input-group">
-                        <input type="file" className="form-control" placeholder="attachment file"
-                            disabled />
-                        <button className="btn btn-outline-info"
-                            onClick={() => { HIModal("発言機能にはログインが必要です"); }}>
+                        <input type="file" className="form-control" placeholder="attachment file" disabled />
+                        <button className="btn btn-outline-info" onClick={() => { HIModal("発言機能にはログインが必要です") }}>
                             <i className="fa-solid fa-circle-info mx-1" style={{ pointerEvents: "none" }} ></i>送信
                         </button>
                     </div>
@@ -396,7 +283,7 @@ export const CTable = () => {
                     <div className="input-group">
                         <input type="file" className="form-control" placeholder="attachment file"
                             id="inputConsoleAttachment"
-                            onChange={(evt) => { setTmpAttachment(evt.target.files?.[0]) }} />
+                            onChange={(evt) => { setTmpAttachment(evt.target.files?.[0] ?? null) }} />
                         {remarkButton()}
                     </div>
                 </div>

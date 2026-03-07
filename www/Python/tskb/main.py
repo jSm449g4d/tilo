@@ -55,6 +55,7 @@ Base = declarative_base()
 
 class TskbCombination(Base):
     __tablename__ = "tskb_combination"
+    __table_args__ = {"sqlite_autoincrement": True}
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(Text, unique=True, nullable=False)
     tag = Column(Text, default="")
@@ -69,6 +70,7 @@ class TskbCombination(Base):
 
 class TskbMaterial(Base):
     __tablename__ = "tskb_material"
+    __table_args__ = {"sqlite_autoincrement": True}
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(Text, unique=True, nullable=False)
     tag = Column(Text, default="")

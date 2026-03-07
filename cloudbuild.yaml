@@ -31,3 +31,5 @@ steps:
       - --allow-unauthenticated
 images:
   - gcr.io/$PROJECT_ID/$_APPNAME
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -12,7 +12,7 @@ var _application = "homepage"
 if ("application" in Query2Dict() == true) { _application = Query2Dict()["application"] }
 //render
 import("./application/" + _application).then(async (module) => {
-    const root = createRoot(document.getElementById("root"))
+    const root = createRoot(document.getElementById("root")!)
     await root.render(
         <React.StrictMode>
             <Provider store={store}>
@@ -26,9 +26,9 @@ import("./application/" + _application).then(async (module) => {
 
     // need delay because the page is not yet fully rendered at this time.
     setTimeout(() => {
-        const appMain = createRoot(document.getElementById("appMain"))
+        const appMain = createRoot(document.getElementById("appMain")!)
         appMain.render(<Provider store={store}><module.AppMain /></Provider>)
-        const titlelogo = createRoot(document.getElementById("titlelogo"))
+        const titlelogo = createRoot(document.getElementById("titlelogo")!)
         titlelogo.render(<Provider store={store}><module.titleLogo /></Provider>)
     }, 100);
 })

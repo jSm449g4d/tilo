@@ -28,4 +28,4 @@ RUN ./.venv/bin/pip install -Ur requirements.txt
 
 # Hosting
 WORKDIR $APP
-CMD bash -c "./.venv/bin/waitress-serve --host=0.0.0.0 --port=8080 wsgi:app"
+CMD bash -c "./.venv/bin/uvicorn --host 0.0.0.0 --port 8080 asgi:application"

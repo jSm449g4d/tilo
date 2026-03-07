@@ -3,7 +3,7 @@ import "../stylecheets/style.sass";
 
 const bgImage: any = {
     //backgroundColor: "lavender",
-    backgroundImage: "url(/static/img/aircraft-2795557_1280.jpg)",
+    backgroundImage: "url(/static/img/frontpage.png)",
     backgroundSize: "cover",
     backgroundAttachment: "fixed",
 }
@@ -14,11 +14,9 @@ export const AppMain = () => {
         return (
             <div className="titlelogo m-2 row">
                 <h1 className="col-12 d-block d-lg-none ">
-                    <div>VPSdeWP</div><div>ホームページ</div>
+                    <div>Home Page</div>
                 </h1>
-                <h1 className="col-lg-12 d-none d-lg-block " >
-                    VPSdeWP の ホームページ
-                </h1>
+                <h1 className="col-lg-12 d-none d-lg-block " >Home Page</h1>
             </div>
         )
     }
@@ -50,11 +48,11 @@ export const AppMain = () => {
                     </div>
                     <div className="col-sm-6 col-md-4 p-1 fadein-4">
                         <div className="btn-col" style={{ background: "rgba(255,255,255,0.6)" }}>
-                            <a className="a-nolink" href='https://github.com/jSm449g4d/hleb' >
+                            <a className="a-nolink" href='https://github.com/jSm449g4d/kanzen' >
                                 <div className="d-flex flex-column" style={{ height: "380px" }}>
-                                    <h5>хлеб (半完全栄養食)</h5>
+                                    <h5>半完全栄養食</h5>
                                     <div className="d-flex flex-column flex-grow-1">
-                                        <img className="img-fluid" src="/static/img/hleb.jpg" style={{ height: 150, objectFit: "contain" }} />
+                                        <img className="img-fluid" src="/static/img/kanzen.jpg" style={{ height: 150, objectFit: "contain" }} />
                                         汎用食
                                         <ul style={{ listStyle: "none" }}>
                                             <li>低カロリー(900[kcal]前後)</li>
@@ -70,16 +68,13 @@ export const AppMain = () => {
                     </div>
                     <div className="col-sm-6 col-md-4 p-1 fadein-4">
                         <div className="btn-col" style={{ background: "rgba(255,255,255,0.6)" }}>
-                            <a className="a-nolink" href='/?application=tskb/main' >
+                            <a className="a-nolink" href='https://github.com/jSm449g4d/tilo' >
                                 <div className="d-flex flex-column" style={{ height: "380px" }}>
-                                    <h5>栄養計算アプリ(β版)</h5>
+                                    <h5>このサイトのリポジトリ</h5>
                                     <div className="d-flex flex-column flex-grow-1">
-                                        <img className="img-fluid" src="/static/img/tskbtitle.png" style={{ height: 150, objectFit: "contain" }} />
+                                        <img className="img-fluid" src="/static/img/tilotitle.jpg" style={{ height: 150, objectFit: "contain" }} />
                                         <ul style={{ listStyle: "none" }}>
                                             <li>現在開発中</li>
-                                            <li>素材/食材を登録</li>
-                                            <li>レシピを登録</li>
-                                            <li>栄養素計算</li>
                                         </ul>
                                     </div>
                                 </div>

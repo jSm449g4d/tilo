@@ -16,6 +16,7 @@ export const AppWidgetHead = () => {
     const [tmpPass, setTmpPass] = useState("")
     const [tmpMail, setTmpMail] = useState("")
     const [tmpButtonFlag, setTmpButtonFlag] = useState(false)
+    const [tmpRoomKey, setTmpRoomKey] = useState("")
 
     const user = useAppSelector((state) => state.account.user)
     const token = useAppSelector((state) => state.account.token)
@@ -23,156 +24,107 @@ export const AppWidgetHead = () => {
     const roomKey = useAppSelector((state) => state.account.roomKey)
     const dispatch = useAppDispatch()
 
+    useEffect(() => {
+        if (token == "") { _signupGuest() }
+        const id = setInterval(() => { _newToken() }, 600000);
+        return () => clearInterval(id);
+    }, [token]);
+
     // accountControl
     const _logoutInit = () => {
-        setTmpUser(""); setTmpPass(""); setTmpMail(""); setTmpButtonFlag(false); dispatch(accountInit());
+        setTmpUser(""); setTmpPass(""); setTmpMail(""); setTmpRoomKey(""); setTmpButtonFlag(false); dispatch(accountInit());
     }
     const _formInit = () => {
-        setTmpUser(""); setTmpPass(""); setTmpMail(""); setTmpButtonFlag(false);
+        setTmpUser(""); setTmpPass(""); setTmpMail(""); setTmpRoomKey(""); setTmpButtonFlag(false);
     }
-    const stringForSend = (_additionalDict: {} = {}) => {
-        const _sendDict = Object.assign(
-            {
-                "token": token, "user": tmpUser, "pass": tmpPass, "mail": tmpMail, "roomKey": roomKey
-            }, _additionalDict)
-        return (JSON.stringify(_sendDict))
+
+    // fetchAPI
+    const postJson = (key: string, body: object, onProcessed?: (resJ: any) => void,) => {
+        const formData = new FormData();
+        formData.append("info", JSON.stringify({ "token": token, "user": tmpUser, "pass": tmpPass, "mail": tmpMail, "roomKey": roomKey }));
+        formData.append(key, JSON.stringify(body));
+        fetch(new Request("/login/main.py", {
+            method: "POST",
+            body: formData,
+            signal: AbortSignal.timeout(xhrTimeout),
+        }))
+            .then(response => response.json())
+            .then((resJ: any) => {
+                switch (resJ["message"]) {
+                    case "processed": { onProcessed?.(resJ); break; }
+                    default: {
+                        if ("text" in resJ) CIModal(resJ["text"]);
+                        break;
+                    }
+                }
+            })
+            .catch((e) => CIModal("fetchAPI_Error", e.message));
+    };
+    const _signupGuest = () => {
+        const formData = new FormData();
+        formData.append("info", JSON.stringify({ "token": "", "user": "guest", "pass": "", "mail": "", "roomKey": roomKey }));
+        formData.append("signup", JSON.stringify({}));
+        fetch(new Request("/login/main.py", {
+            method: "POST",
+            body: formData,
+            signal: AbortSignal.timeout(xhrTimeout),
+        }))
+            .then(response => response.json())
+            .then((resJ: any) => {
+                switch (resJ["message"]) {
+                    case "processed": { dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"], mail: resJ["mail"] })); break; }
+                    default: {
+                        if ("text" in resJ) CIModal(resJ["text"]);
+                        break;
+                    }
+                }
+            })
+            .catch((e) => CIModal("fetchAPI_Error", e.message));
     }
     const _login = () => {
-        const headers = new Headers();
-        const formData = new FormData();
-        formData.append("info", stringForSend())
-        formData.append("login", JSON.stringify({}))
-        const request = new Request("/login/main.py", {
-            method: 'POST',
-            headers: headers,
-            body: formData,
-            signal: AbortSignal.timeout(xhrTimeout)
+        postJson("login", {}, (resJ) => {
+            dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"], mail: resJ["mail"] }));
+            _formInit();
         });
-        fetch(request)
-            .then(response => response.json())
-            .then(resJ => {
-                switch (resJ["message"]) {
-                    case "processed": {
-                        dispatch(accountSetState({
-                            user: resJ["user"], token: resJ["token"],
-                            id: resJ["id"], mail: resJ["mail"]
-                        })); break;
-                    }
-                    default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
-                        break;
-                    }
-                }
-            })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
-        _formInit()
-    }
+    };
     const _signup = () => {
-        const headers = new Headers();
-        const formData = new FormData();
-        formData.append("info", stringForSend())
-        formData.append("signup", JSON.stringify({}))
-        const request = new Request("/login/main.py", {
-            method: 'POST',
-            headers: headers,
-            body: formData,
-            signal: AbortSignal.timeout(xhrTimeout)
+        postJson("signup", {}, (resJ) => {
+            dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"], mail: resJ["mail"] }));
+            CIModal("Success", "Create account")
+            _formInit();
         });
-        fetch(request)
-            .then(response => response.json())
-            .then(resJ => {
-                switch (resJ["message"]) {
-                    case "processed": {
-                        dispatch(accountSetState({
-                            user: resJ["user"], id: resJ["id"], mail: resJ["mail"], token: resJ["token"],
-                        }));
-                        HIModal("アカウント作成に成功しました")
-                        break;
-                    }
-                    default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
-                        break;
-                    }
-                }
-            })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
-        _formInit()
     }
     const _logout = () => { _logoutInit() }
     const _accountChange = () => {
-        const headers = new Headers();
-        const formData = new FormData();
-        formData.append("info", stringForSend())
-        formData.append("account_change", JSON.stringify({}))
-        const request = new Request("/login/main.py", {
-            method: 'POST',
-            headers: headers,
-            body: formData,
-            signal: AbortSignal.timeout(xhrTimeout)
+        postJson("account_change", {}, (resJ) => {
+            dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"], mail: resJ["mail"] }));
+            CIModal("Success", "Change account setting")
+            _formInit();
         });
-        fetch(request)
-            .then(response => response.json())
-            .then(resJ => {
-                switch (resJ["message"]) {
-                    case "processed": {
-                        dispatch(accountSetState({ user: resJ["user"], mail: resJ["mail"], token: resJ["token"] })); break;
-                    }
-                    default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
-                        break;
-                    }
-                }
-            })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
-        _formInit()
     }
     const _accountDelete = () => {
-        const headers = new Headers();
-        const formData = new FormData();
-        formData.append("info", stringForSend())
-        formData.append("account_delete", JSON.stringify({}))
-        const request = new Request("/login/main.py", {
-            method: 'POST',
-            headers: headers,
-            body: formData,
-            signal: AbortSignal.timeout(xhrTimeout)
+        postJson("account_delete", {}, () => {
+            _logoutInit();
+            CIModal("Success", "Deleted your account")
+            _formInit();
         });
-        fetch(request)
-            .then(response => response.json())
-            .then(resJ => {
-                switch (resJ["message"]) {
-                    case "processed": { _logoutInit(); break; }
-                    default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
-                        break;
-                    }
-                }
-            })
-            .catch(error => {
-                CIModal("通信エラー")
-                console.error(error.message)
-            });
-        _formInit()
+    };
+    const _newToken = () => {
+        if (token == "") return;
+        postJson("new_token", {}, (resJ) => {
+            dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"] }));
+        });
     }
     const _accountForm = () => {
-        const accountSignupModal = () => {
+        const accountLoginModal = () => {
             return (
-                <div className="modal fade" id="accountSignupModal" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                <div className="modal fade" id="accountLoginModal" aria-labelledby="exampleModalLabel" aria-hidden="true">
                     <div className="modal-dialog">
                         <div className="modal-content">
                             <div className="modal-headerrow">
                                 <div className="modal-title d-flex m-2">
-                                    <h3 className="me-auto"><i className="fa-solid fa-pen text-primary mx-1" />SignUp</h3>
-                                    <button className="btn btn-info" type="button" data-bs-dismiss="modal"
+                                    <h3 className="me-auto"><i className="fa-solid fa-pen text-primary mx-1" />LogIn</h3>
+                                    <button type="button" className="btn btn-outline-info"
                                         onClick={() =>
                                             HIModal("開発中",
                                                 "現在メール機能は開発中の為、操作できません")} >
@@ -210,22 +162,99 @@ export const AppWidgetHead = () => {
                                             value={tmpMail} onChange={(evt) => { setTmpMail(evt.target.value) }}
                                             disabled id="accountSignupModalMail" />
                                     </div>
+                                    <div className="form-check m-1 col-12">
+                                        {tmpUser == "" ?
+                                            <div className="text-warning-emphasis">
+                                                Plz Input Username
+                                            </div> :
+                                            <div />
+                                        }
+                                        {tmpPass.length < 8 ?
+                                            <div className="text-warning-emphasis">
+                                                Plz Input a password of 8 or more characters
+                                            </div> :
+                                            <div />
+                                        }
+                                    </div>
                                 </div>
                             </div>
                             <div className="modal-footer d-flex">
-                                <button type="button" className="btn btn-secondary me-auto" data-bs-dismiss="modal">
+                                <button type="button" className="btn btn-outline-secondary me-auto" data-bs-dismiss="modal"
+                                    onClick={() => _formInit()}>
                                     Close
                                 </button>
-                                {tmpUser == "" || tmpPass == "" ?
-                                    <button type="button" className="btn btn-info"
+                                {tmpUser == "" || tmpPass.length < 8 ?
+                                    <button type="button" className="btn btn-outline-success"
                                         onClick={() =>
-                                            HIModal("サインイン情報を入力してください",
-                                                "※現在メール機能は開発中の為、操作できません")}>
-                                        <i className="fa-solid fa-circle-info mx-1" />登録
+                                            HIModal("ログイン情報を入力してください",
+                                                "※現在メール機能は開発中の為、操作できません。")}>
+                                        <i className="fa-solid fa-circle-info mx-1" />Login
+                                    </button> :
+                                    <button type="button" className="btn btn-outline-success" data-bs-dismiss="modal"
+                                        onClick={() => _login()}>
+                                        <i className="fa-solid fa-arrow-right-to-bracket mx-1" style={{ pointerEvents: "none" }} />Login
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+        const accountSignupModal = () => {
+            return (
+                <div className="modal fade" id="accountSignupModal" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                    <div className="modal-dialog">
+                        <div className="modal-content">
+                            <div className="modal-headerrow">
+                                <div className="modal-title d-flex m-2">
+                                    <h3 className="me-auto"><i className="fa-solid fa-pen text-primary mx-1" />SignUp</h3>
+                                </div>
+                            </div>
+                            <div className="modal-body">
+                                <div className="row">
+                                    <div className="input-group col-12 m-1">
+                                        <span className="input-group-text">User</span>
+                                        <input type="text" className="form-control" placeholder="Username" aria-label="Username"
+                                            value={tmpUser} onChange={(evt) => { setTmpUser(evt.target.value) }} />
+                                    </div>
+                                    <div className="input-group col-12 m-1">
+                                        <span className="input-group-text">Pass</span>
+                                        <input type="password" className="form-control" placeholder="pass" aria-label="pass"
+                                            aria-labelledby="passwordHelpBlock"
+                                            value={String(tmpPass).replace(/[^0-9|^a-z|^A-Z|]/g, '')}
+                                            onChange={(evt) => { setTmpPass(evt.target.value) }} />
+                                    </div>
+                                    <div className="form-check m-1 col-12">
+                                        {tmpUser == "" ?
+                                            <div className="text-warning-emphasis">
+                                                Plz Input Username
+                                            </div> :
+                                            <div />
+                                        }
+                                        {tmpPass.length < 8 ?
+                                            <div className="text-warning-emphasis">
+                                                Plz Input a password of 8 or more characters
+                                            </div> :
+                                            <div />
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="modal-footer d-flex">
+                                <button type="button" className="btn btn-outline-secondary me-auto" data-bs-dismiss="modal"
+                                    onClick={() => _formInit()}>
+                                    Close
+                                </button>
+                                {tmpUser == "" || tmpPass.length < 8 ?
+                                    <button type="button" className="btn btn-outline-primary"
+                                        onClick={() =>
+                                            HIModal("サインイン情報を入力してください")}>
+                                        <i className="fa-solid fa-circle-info mx-1" />Register
                                     </button> :
                                     <button type="button" className="btn btn-primary" data-bs-dismiss="modal"
                                         onClick={() => _signup()}>
-                                        <i className="fa-solid fa-pen mx-1" style={{ pointerEvents: "none" }} />登録
+                                        <i className="fa-solid fa-pen mx-1" style={{ pointerEvents: "none" }} />Register
                                     </button>
                                 }
                             </div>
@@ -249,7 +278,7 @@ export const AppWidgetHead = () => {
                                 <h5 className="modal-title row-12 m-1">
                                     {mail == "" ?
                                         <div>
-                                            <i className="fa-regular fa-envelope mx-1" />未登録
+                                            <i className="fa-regular fa-envelope mx-1" />Not Registered
                                         </div>
                                         : <div>
                                             <i className="fa-regular fa-envelope mx-1" />{mail}
@@ -303,21 +332,30 @@ export const AppWidgetHead = () => {
                                         value={tmpMail} onChange={(evt) => { setTmpMail(evt.target.value) }}
                                         disabled id="accountConfigModalMail" />
                                 </div>
+                                <div className="form-check m-1">
+                                    {tmpUser == "" && tmpPass.length < 8 && tmpMail == "" ?
+                                        <div className="text-warning-emphasis">
+                                            Plz Input a password of 8 or more characters
+                                        </div> :
+                                        <div />
+                                    }
+                                </div>
                             </div>
                             <div className="modal-footer d-flex">
-                                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                {tmpUser == "" && tmpPass == "" && tmpMail == "" ?
+                                <button type="button" className="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                                {tmpUser == "" && tmpPass.length < 8 && tmpMail == "" ?
                                     <button type="button" className="btn btn-info me-auto"
                                         onClick={() =>
                                             HIModal("変更したい情報を入力して下さい",
                                                 "各項目のチェックボックスをオンにすることで入力可能になります。" +
                                                 "オンにした項目が更新されます。" +
+                                                "パスワードは八文字以上。" +
                                                 "※現在メール機能は開発中の為、選択できません。")}>
-                                        <i className="fa-solid fa-circle-info mx-1" />更新
+                                        <i className="fa-solid fa-circle-info mx-1" />Update
                                     </button> :
                                     <button type="button" className="btn btn-warning me-auto" data-bs-dismiss="modal"
                                         onClick={() => _accountChange()}>
-                                        <i className="fa-regular fa-user mx-1" style={{ pointerEvents: "none" }} />更新
+                                        <i className="fa-regular fa-user mx-1" style={{ pointerEvents: "none" }} />Update
                                     </button>
 
                                 }
@@ -328,11 +366,11 @@ export const AppWidgetHead = () => {
                                     </input>
                                     {tmpButtonFlag == false ?
                                         <button className="btn btn-danger" type="button" data-bs-dismiss="modal" disabled>
-                                            <i className="fa-solid fa-trash mx-1" style={{ pointerEvents: "none" }}></i>削除
+                                            <i className="fa-solid fa-trash mx-1" style={{ pointerEvents: "none" }}></i>Delete
                                         </button> :
                                         <button className="btn btn-danger" type="button" data-bs-dismiss="modal"
                                             onClick={() => _accountDelete()} >
-                                            <i className="fa-solid fa-trash mx-1" style={{ pointerEvents: "none" }}></i>削除
+                                            <i className="fa-solid fa-trash mx-1" style={{ pointerEvents: "none" }}></i>Delete
                                         </button>
                                     }
                                 </div>
@@ -342,63 +380,96 @@ export const AppWidgetHead = () => {
                 </div>
             )
         }
+        const roomKeyModal = () => {
+            return (
+                <div className="modal fade" id="roomKeyModal" aria-labelledby="exampleModalLabel" aria-hidden="true">
+                    <div className="modal-dialog">
+                        <div className="modal-content">
+                            <div className="modal-header">
+                                <h1 className="modal-title fs-5">
+                                    <i className="fa-solid fa-key mx-1" />Set RoomKey
+                                </h1>
+                            </div>
+                            <div className="modal-body row">
+                                <div className="input-group m-1 col-12">
+                                    <span className="input-group-text">Pass</span>
+                                    <input type="password" className="form-control" placeholder="RoomKey" aria-label="RoomKey"
+                                        value={tmpRoomKey} onChange={(evt) => { setTmpRoomKey(evt.target.value) }} />
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button type="button" value={-1} id="roomInterModalButton"
+                                    className="btn btn-secondary" data-bs-dismiss="modal" onClick={() => { _formInit() }}>
+                                    Close
+                                </button>
+                                <button type="button" className="btn btn-outline-primary" data-bs-dismiss="modal"
+                                    onClick={
+                                        () => {
+                                            dispatch(accountSetState({ roomKey: tmpRoomKey }))
+                                            _formInit()
+                                        }}>
+                                    {tmpRoomKey == "" ? <div>Unset Key</div> :
+                                        <div><i className="fa-solid fa-right-to-bracket mx-1" style={{ pointerEvents: "none" }} />Set Key</div>}
+                                </button>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )
+        }
+        const roomKeyButton = () => {
+            return (
+                <button className="btn btn-outline-dark" type="button" aria-expanded="false"
+                    onClick={() => { $('#roomKeyModal').modal('show'); }}>
+                    {roomKey == "" ?
+                        <div style={{ color: "gray", fontWeight: "bold" }}><i className="fa-solid fa-key mx-1" style={{ pointerEvents: "none" }} />No key</div> :
+                        <div style={{ color: "olive", fontWeight: "bold" }}><i className="fa-solid fa-key mx-1" style={{ pointerEvents: "none" }} />Set key</div>
+                    }
+                </button>)
+        }
+        const _userNameTitle = () => {
+            return (
+                <div className="d-flex justify-content-center align-items-center h-100">
+                    {token != "" ? <h4 className="mx-2"> {user}</h4> : <h3 className="mx-2">  No User</h3>}
+                </div>)
+        }
         return (
             <div>
+                {roomKeyModal()}
+                {accountLoginModal()}
                 {accountSignupModal()}
                 {accountConfigModal()}
-                {token == "" ?
-                    <div className="d-flex">
-                        <div className="me-auto"></div>
-                        <div className="d-flex justify-content-center align-items-center">
-                            {roomKey != "" ?
-                                <i className="fa-solid fa-key text-warning mx-1" style={{ pointerEvents: "none" }}></i>
-                                : <div />
-                            }
-                        </div>
-                        <div className="row">
-                            <div className="input-group col-12">
-                                <span className="input-group-text">User</span>
-                                <input type="text" className="form-control" placeholder="Username" aria-label="Username"
-                                    value={tmpUser} onChange={(evt) => { setTmpUser(evt.target.value) }} />
+                <div className="d-flex flex-column">
+                    {_userNameTitle()}
+                    {user.includes("GUEST") || user.includes("HOST") || user.includes("ANONYMOUS") ?
+                        <div className="d-flex justify-content-center align-items-center h-100">
+                            <div className="btn-group">
+                                {roomKeyButton()}
+                                <button className="btn btn-outline-success" type="button" aria-expanded="false"
+                                    onClick={() => { _formInit(); $('#accountLoginModal').modal('show'); }}>
+                                    <i className="fa-solid fa-arrow-right-to-bracket mx-1" style={{ pointerEvents: "none" }}></i>Login
+                                </button>
+                                <button className="btn btn-outline-primary" type="button" aria-expanded="false"
+                                    onClick={() => { _formInit(); $('#accountSignupModal').modal('show'); }}>
+                                    <i className="fa-solid fa-pen mx-1" style={{ pointerEvents: "none" }}></i>Signup
+                                </button>
                             </div>
-                            <div className="input-group col-12">
-                                <span className="input-group-text">Pass</span>
-                                <input type="password" className="form-control" placeholder="pass" aria-label="pass"
-                                    aria-labelledby="passwordHelpBlock"
-                                    value={String(tmpPass).replace(/[^0-9|^a-z|^A-Z|]/g, '')}
-                                    onChange={(evt) => { setTmpPass(evt.target.value) }} />
-                            </div>
-                        </div>
-                        {tmpUser == "" || tmpPass == "" ?
-                            <button className="btn btn-outline-primary" type="button" aria-expanded="false"
-                                onClick={() => { _formInit(); $('#accountSignupModal').modal('show'); }}>
-                                <i className="fa-solid fa-pen mx-1"></i>signUp
-                            </button> :
-                            <button className="btn btn-outline-success" type="button"
-                                aria-expanded="false" onClick={() => { _login(); }}>
-                                <i className="fa-solid fa-arrow-right-to-bracket mx-1"></i>logIn&nbsp;
-                            </button>
-                        }
-                    </div> :
-                    <div className="d-flex justify-content-center align-items-center">
-                        <div className="me-md-auto"></div>
-                        <div className="d-flex">
-                            <h5 className=""> {"ようこそ"}   </h5>
-                            <h3 className="mx-2"> {user}</h3>
-                        </div>
-                        <div className="d-flex align-items-center">
-                            <div className="btn-group w-100">
+                        </div> :
+                        <div className="d-flex justify-content-center align-items-center h-100">
+                            <div className="btn-group">
+                                {roomKeyButton()}
+                                <button className="btn btn-outline-dark" type="button" aria-expanded="false"
+                                    onClick={() => { _formInit(); $('#accountConfigModal').modal('show'); }}>
+                                    <i className="fa-solid fa-wrench mx-1" style={{ pointerEvents: "none" }}></i>Config
+                                </button>
                                 <button className="btn btn-outline-dark" type="button" aria-expanded="false"
                                     onClick={() => { _logout() }}>
-                                    <i className="fa-solid fa-right-from-bracket mx-1" style={{ pointerEvents: "none" }}></i>logout
-                                </button>
-                                <button className="btn btn-outline-warning" type="button" aria-expanded="false"
-                                    onClick={() => { _formInit(); $('#accountConfigModal').modal('show'); }}>
-                                    <i className="fa-solid fa-wrench mx-1" style={{ pointerEvents: "none" }}></i>config
+                                    <i className="fa-solid fa-right-from-bracket mx-1" style={{ pointerEvents: "none" }}></i>Logout
                                 </button>
                             </div>
-                        </div>
-                    </div>}
+                        </div>}
+                </div>
             </div>)
     }
     // mainAppRender
@@ -412,9 +483,9 @@ export const AppWidgetHead = () => {
         })
     }
     return (
-        <div style={{ borderBottom: "3px double gray", background: "linear-gradient(rgba(60,60,60,0),rgba(60,60,60,0.1)" }}>
+        <div style={{ borderBottom: "3px double gray", background: "linear-gradient(rgba(60,60,60,0),rgba(60,60,60,0.1))" }}>
             <div className="my-1 mx-2 row">
-                <div className="col-12 col-md-7 d-flex align-items-center">
+                <div className="col-12 col-lg-6 d-flex align-items-center">
                     <div className="dropdown">
                         <ul className="dropdown-menu ">
                             <li><a className="dropdown-item btn-col" style={{ fontSize: "1.5em" }}
@@ -439,7 +510,7 @@ export const AppWidgetHead = () => {
                         <div id="titlelogo">タイトル未設定</div>
                     </div>
                 </div>
-                <div className="col-12 col-md-5">
+                <div className="col-12 col-lg-6">
                     {_accountForm()}
                 </div>
             </div></div>
@@ -455,11 +526,8 @@ export const AppWidgetFoot = () => {
                 <i className="fab fa-github fa-2x fa-btn-goldbadge mx-1"
                     onClick={() => window.location.href = "https://github.com/jSm449g4d/"}></i>
             </div>
-            <h5>===VPSdeWP===</h5>
-            <div className="btn-push" data-toggle="widget_widgetfood_tooltip" data-placement="top" title="敗戦国の末路"
-                onClick={(evt) => {
-                    window.location.href = 'https://www.youtube.com/watch?v=_fj9U6pVNkM&ab_channel=%E9%88%B4%E6%9C%A8%E3%82%86%E3%82%86%E3%81%86%E3%81%9F'
-                }}>ご自由にお使いください</div>
+            <h5>===tilo===</h5>
+            <div onClick={(evt) => { }}></div>
         </div>
     );
 }
