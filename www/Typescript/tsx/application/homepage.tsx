@@ -72,7 +72,7 @@ export const AppMain = () => {
                                 <div className="d-flex flex-column" style={{ height: "380px" }}>
                                     <h5>このサイトのリポジトリ</h5>
                                     <div className="d-flex flex-column flex-grow-1">
-                                        <img className="img-fluid" src="/static/img/tilotitle.jpg" style={{ height: 150, objectFit: "contain" }} />
+                                        <img className="img-fluid" src="/static/img/tilotitle.png" style={{ height: 150, objectFit: "contain" }} />
                                         <ul style={{ listStyle: "none" }}>
                                             <li>現在開発中</li>
                                         </ul>

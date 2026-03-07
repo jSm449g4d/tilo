@@ -195,7 +195,7 @@ async def show(request: Request):
             return {"message": "processed"}
 
         if "new_token" in form:
-            token = jwt.encode(
+            _token = jwt.encode(
                 {
                     "id": token["id"],
                     "user": token["user"],
@@ -206,7 +206,7 @@ async def show(request: Request):
             )
             return {
                 "message": "processed",
-                "token": token,
+                "token": _token,
                 "id": token["id"],
                 "user": token["user"],
             }

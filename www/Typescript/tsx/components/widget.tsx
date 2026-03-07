@@ -9,6 +9,7 @@ import { accountInit, accountSetState } from './slice'
 import { useAppSelector, useAppDispatch } from './store'
 
 const xhrTimeout = 3000
+const RESERVED_NAME = ["GUEST", "guest", "HOST", "host", "ANONYMOUS", "anonymous"]
 
 export const AppWidgetHead = () => {
 
@@ -82,12 +83,16 @@ export const AppWidgetHead = () => {
             .catch((e) => CIModal("fetchAPI_Error", e.message));
     }
     const _login = () => {
+        if (RESERVED_NAME.some((name) => tmpUser.toUpperCase().includes(name)
+        )) { CIModal("userName_reserved", tmpUser + ": is RESERVED_NAME"); _formInit(); return; };
         postJson("login", {}, (resJ) => {
             dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"], mail: resJ["mail"] }));
             _formInit();
         });
     };
     const _signup = () => {
+        if (RESERVED_NAME.some((name) => tmpUser.toUpperCase().includes(name)
+        )) { CIModal("userName_reserved", tmpUser + ": is RESERVED_NAME"); _formInit(); return; };
         postJson("signup", {}, (resJ) => {
             dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"], mail: resJ["mail"] }));
             CIModal("Success", "Create account")
@@ -497,7 +502,7 @@ export const AppWidgetHead = () => {
                                 <i className="far fa-comments mx-1" style={{ pointerEvents: "none" }}></i>チャット α版
                             </a></li>
                             <li><a className="dropdown-item btn-col" style={{ fontSize: "1.5em" }}
-                                onClick={() => {}}>{/**() => { _switchApp("tskb/main") } */}
+                                onClick={() => { }}>{/**() => { _switchApp("tskb/main") } */}
                                 <i className="fa-solid fa-book mx-1" style={{ pointerEvents: "none" }}></i>栄養計算 β版{"(工事中)"}
                             </a></li>
                         </ul>
