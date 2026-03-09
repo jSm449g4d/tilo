@@ -189,10 +189,7 @@ export const AppWidgetHead = () => {
                                     Close
                                 </button>
                                 {tmpUser == "" || tmpPass.length < 8 ?
-                                    <button type="button" className="btn btn-outline-success"
-                                        onClick={() =>
-                                            HIModal("ログイン情報を入力してください",
-                                                "※現在メール機能は開発中の為、操作できません。")}>
+                                    <button type="button" className="btn btn-outline-success" disabled>
                                         <i className="fa-solid fa-circle-info mx-1" />Login
                                     </button> :
                                     <button type="button" className="btn btn-outline-success" data-bs-dismiss="modal"
@@ -252,9 +249,7 @@ export const AppWidgetHead = () => {
                                     Close
                                 </button>
                                 {tmpUser == "" || tmpPass.length < 8 ?
-                                    <button type="button" className="btn btn-outline-primary"
-                                        onClick={() =>
-                                            HIModal("サインイン情報を入力してください")}>
+                                    <button type="button" className="btn btn-outline-primary" disabled>
                                         <i className="fa-solid fa-circle-info mx-1" />Register
                                     </button> :
                                     <button type="button" className="btn btn-primary" data-bs-dismiss="modal"

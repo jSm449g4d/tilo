@@ -7,6 +7,8 @@ import asyncio
 import sys
 import time
 import unicodedata
+import threading
+from pathlib import Path
 from urllib.parse import quote
 
 import jwt
@@ -81,6 +83,7 @@ class TptefRoom(Base):
 
 engine = create_engine(f"sqlite:///{db_dir}", future=True)
 Session = sessionmaker(bind=engine, future=True)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base.metadata.create_all(engine)
 
 
@@ -133,7 +136,9 @@ async def show(request: Request):
     with Session() as session:
         if "create" in form:
             _dataDict.update(json.loads(form["create"]))
-            _room_name = safe_string(_dataDict["roomName"], _anti_directory_traversal=False)
+            _room_name = safe_string(
+                _dataDict["roomName"], _anti_directory_traversal=False
+            )
             _room = session.execute(
                 select(TptefRoom).where(TptefRoom.name == _room_name)
             ).scalar_one_or_none()
@@ -293,9 +298,12 @@ class ConnectionManager:
                 stmt = (
                     select(TptefRoom)
                     .where(
-                        (TptefRoom.userid == token["id"])
-                        | (TptefRoom.passhash == "")
-                        | (TptefRoom.passhash == roompasshash)
+                        (
+                            (TptefRoom.userid == token["id"])
+                            | (TptefRoom.passhash == "")
+                            | (TptefRoom.passhash == roompasshash)
+                        )
+                        & (TptefRoom.name.ilike(f"%{_form['search']}%"))
                     )
                     .order_by(TptefRoom.timestamp.desc())
                     .limit(100)
@@ -347,6 +355,47 @@ def on_after_commit(session: SASession):
         loop = asyncio.get_running_loop()
         loop.create_task(manager.distributes())
 
+
+class SalyRunner:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._thread = None
+
+    def start_once(self):
+        with self._lock:
+            if self._thread and self._thread.is_alive():
+                return
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
+
+    def _loop(self):
+        while True:
+            with SessionLocal() as session:
+                cutoff = int(time.time()) - 86400
+                session.query(TptefRoom).filter(
+                    (TptefRoom.timestamp < cutoff) & (TptefRoom.user.ilike("%GUEST%"))
+                ).delete(synchronize_session=False)
+                session.commit()
+                session.query(TptefChat).filter(
+                    ~session.query(TptefRoom.id)
+                    .filter(TptefRoom.id == TptefChat.roomid)
+                    .exists()
+                ).delete(synchronize_session=False)
+                session.commit()
+                files = [p.name for p in Path(tmp_dir).iterdir() if p.is_file()]
+                for f in files:
+                    if not f.isdigit():
+                        continue
+                    _fileparentchat = session.get(TptefChat, int(f))
+                    if _fileparentchat is None:
+                        _remove_file = os.path.normpath(os.path.join(tmp_dir, str(f)))
+                        if os.path.exists(_remove_file):
+                            os.remove(_remove_file)
+            time.sleep(43200)
+
+
+saly = SalyRunner()
+saly.start_once()
 
 # isolation
 if __name__ == "__main__":
