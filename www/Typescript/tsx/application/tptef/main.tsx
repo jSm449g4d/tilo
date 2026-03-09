@@ -55,7 +55,7 @@ export const AppMain = () => {
     const createRoom = () => {
         const formData = new FormData()
         formData.append("info", JSON.stringify({ "token": token, roomKey: roomKey }))
-        formData.append("create", JSON.stringify({ "room": tmpRoom, "roomKey": tmpRoomKey }))
+        formData.append("create", JSON.stringify({ "roomName": tmpRoom, "roomKey": tmpRoomKey }))
         fetch(new Request("/tptef/main.py", {
             method: "POST",
             body: formData,
@@ -136,10 +136,12 @@ export const AppMain = () => {
                 <div className="input-group d-flex justify-content-center align-items-center my-1">
                     <button className="btn btn-outline-success btn-lg" type="button"
                         onClick={() => { sendSearch() }}>
-                        <i className="fa-solid fa-rotate-right mx-1" style={{ pointerEvents: "none" }} />
+                        <i className="fa-solid fa-magnifying-glass mx-1" style={{ pointerEvents: "none" }} />
                     </button>
                     <input className="flex-fill form-control form-control-lg" type="text" placeholder="部屋名検索" value={tmpRoom}
-                        onChange={(evt) => { setTmpRoom(evt.target.value) }} />
+                        onChange={(evt) => { setTmpRoom(evt.target.value) }}
+                        onKeyDown={(evt) => { if (evt.key === "Enter") { evt.preventDefault(); sendSearch(); } }}
+                    />
                     {token == "" ?
                         <button className="btn btn-outline-info btn-lg" type="button"
                             onClick={() => { HIModal("ログインが必要") }}>
@@ -172,22 +174,22 @@ export const AppMain = () => {
 
         const _tmpRecord = []
         for (let i = 0; i < contents.length; i++) {
-            if (contents[i]["room"].indexOf(tmpRoom) == -1) continue
+            if (contents[i]["name"].indexOf(tmpRoom) == -1) continue
             const _tmpData = []
             let _style = { background: "linear-gradient(rgba(60,60,60,0), rgba(60,60,60,0.2))" }
             if (contents[i]["passhash"] != "") {
                 _style = { background: "linear-gradient(rgba(60,60,60,0), rgba(150,150,60,0.2))" }
             }
             _tmpData.push(
-                <div className="col-12 border d-flex" style={_style} key={`head-${contents[i]["id"]}`}>
+                <div className="col-12 border d-flex" style={_style} key={`user-${contents[i]["id"]}`}>
                     <h5 className="me-auto">
                         <i className="far fa-user mx-1"></i>{contents[i]["user"]}
                     </h5>
                     {enterButton(contents[i])}
                 </div>)
             _tmpData.push(
-                <div className="col-12 col-md-10 p-1 d-flex justify-content-center align-items-center border" key={`room-${contents[i]["id"]}`}>
-                    <h3>{contents[i]["room"]}</h3>
+                <div className="col-12 col-md-10 p-1 d-flex justify-content-center align-items-center border" key={`name-${contents[i]["id"]}`}>
+                    <h3>{contents[i]["name"]}</h3>
                 </div>)
             _tmpData.push(
                 <div className="col-12 col-md-2 p-1 border" key={`ts-${contents[i]["id"]}`}><div className="text-center">

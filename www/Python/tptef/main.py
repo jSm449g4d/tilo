@@ -64,7 +64,7 @@ class TptefChat(Base):
     userid = Column(Integer, nullable=False)
     roomid = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
-    mode = Column(Text, nullable=False)
+    filename = Column(Text, nullable=False)
     timestamp = Column(Integer, nullable=False)
 
 
@@ -74,7 +74,7 @@ class TptefRoom(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user = Column(Text, nullable=False)
     userid = Column(Integer, nullable=False)
-    room = Column(Text, unique=True, nullable=False)
+    name = Column(Text, unique=True, nullable=False)
     passhash = Column(Text, default="")
     timestamp = Column(Integer, nullable=False)
 
@@ -133,25 +133,27 @@ async def show(request: Request):
     with Session() as session:
         if "create" in form:
             _dataDict.update(json.loads(form["create"]))
-            _room_name = safe_string(_dataDict["room"], _anti_directory_traversal=False)
-            room = session.execute(
-                select(TptefRoom).where(TptefRoom.room == _room_name)
+            _room_name = safe_string(_dataDict["roomName"], _anti_directory_traversal=False)
+            _room = session.execute(
+                select(TptefRoom).where(TptefRoom.name == _room_name)
             ).scalar_one_or_none()
-            if room is not None:
+            if _room is not None:
                 return {"message": "alreadyExisted", "text": "既存の部屋名"}
-            room = TptefRoom(
+            _room = TptefRoom(
                 user=token["user"],
                 userid=token["id"],
-                room=_room_name,
+                name=_room_name,
                 passhash=roompasshash,
                 timestamp=int(time.time()),
             )
-            session.add(room)
+            session.add(_room)
             session.info["search_plz"] = True
             session.commit()
             return {
                 "message": "processed",
-                "room": {c.name: getattr(room, c.name) for c in room.__table__.columns},
+                "room": {
+                    c.name: getattr(_room, c.name) for c in _room.__table__.columns
+                },
             }
 
         room = session.get(TptefRoom, _dataDict["roomid"])
@@ -164,49 +166,41 @@ async def show(request: Request):
 
         if "remark" in form:
             _dataDict.update(json.loads(form["remark"]))
-            session.add(
-                TptefChat(
-                    user=token["user"],
-                    userid=token["id"],
-                    roomid=room.id,
-                    text=_dataDict["text"],
-                    mode="text",
-                    timestamp=int(time.time()),
-                )
-            )
-            session.info["fetch_plz"] = True
-            session.commit()
-            return {"message": "processed"}
-
-        if upload := form.get("upload"):
-            chat = TptefChat(
+            _fn = ""
+            if "upload" in form:
+                _fn = form["upload"].filename
+            _chat = TptefChat(
                 user=token["user"],
                 userid=token["id"],
                 roomid=room.id,
-                text=upload.filename,
-                mode="attachment",
+                text=_dataDict["text"],
+                filename=safe_string(_fn),
                 timestamp=int(time.time()),
             )
-            session.add(chat)
+            session.add(_chat)
             session.flush()
-            with open(
-                os.path.normpath(os.path.join(tmp_dir, safe_string(chat.id))), "wb"
-            ) as out_f:
-                shutil.copyfileobj(upload.file, out_f)
             session.info["fetch_plz"] = True
             session.commit()
+            if _fn == "":
+                return {"message": "processed"}
+            _target_file = os.path.normpath(os.path.join(tmp_dir, str(_chat.id)))
+            with open(_target_file, "wb") as out_f:
+                shutil.copyfileobj(form["upload"].file, out_f)
             return {"message": "processed"}
 
         if "download" in form:
             _dataDict.update(json.loads(form["download"]))
-            _target_file = os.path.normpath(
-                os.path.join(tmp_dir, safe_string(_dataDict["chatid"]))
-            )
+            _chat = session.get(TptefChat, _dataDict["chatid"])
+            if _chat is None:
+                return {"message": "notExist", "text": "Chat is not exist"}
+            if _chat.roomid != room.id:
+                return {"message": "Error", "text": "Access Denied"}
+            _target_file = os.path.normpath(os.path.join(tmp_dir, str(_chat.id)))
             if os.path.exists(_target_file):
                 return FileResponse(
                     _target_file,
                     headers={
-                        "Content-Disposition": f"{"attachment"}; filename*=UTF-8''{quote(_dataDict['filename'])}"
+                        "Content-Disposition": f"{"attachment"}; filename*=UTF-8''{quote(_chat.filename)}"
                     },
                 )
             return {"message": "notExist", "text": "ファイル不明"}
@@ -215,22 +209,18 @@ async def show(request: Request):
             _dataDict.update(json.loads(form["delete"]))
             _chat = session.get(TptefChat, _dataDict["chatid"])
             if _chat is None:
-                session.info["fetch_plz"] = True
-                session.commit()
                 return {"message": "notExist", "text": "Chat is not exist"}
+            if _chat.roomid != room.id:
+                return {"message": "Error", "text": "Access Denied"}
             if room.userid != token["id"] and _chat.userid != token["id"]:
                 return {
                     "message": "noAuthority",
                     "text": "You don't have the right to delete",
                 }
-            session.execute(
-                delete(TptefChat).where(TptefChat.id == _dataDict["chatid"])
-            )
-            _remove_file = os.path.normpath(
-                os.path.join(tmp_dir, safe_string(_dataDict["chatid"]))
-            )
+            _remove_file = os.path.normpath(os.path.join(tmp_dir, str(_chat.id)))
             if os.path.exists(_remove_file):
                 os.remove(_remove_file)
+            session.delete(_chat)
             session.info["fetch_plz"] = True
             session.commit()
             return {"message": "processed"}
@@ -243,11 +233,7 @@ async def show(request: Request):
                     "text": "You don't have the right to delete",
                 }
             chats = (
-                session.execute(
-                    select(TptefChat).where(
-                        TptefChat.roomid == room.id, TptefChat.mode == "attachment"
-                    )
-                )
+                session.execute(select(TptefChat).where(TptefChat.roomid == room.id))
                 .scalars()
                 .all()
             )
@@ -256,12 +242,7 @@ async def show(request: Request):
                 if os.path.exists(_remove_file):
                     os.remove(_remove_file)
             session.execute(delete(TptefChat).where(TptefChat.roomid == room.id))
-            session.execute(
-                delete(TptefRoom).where(
-                    TptefRoom.userid == token["id"],
-                    TptefRoom.id == _dataDict["roomid"],
-                )
-            )
+            session.delete(room)
             session.info["search_plz"] = True
             session.commit()
             return {"message": "processed"}
@@ -289,7 +270,6 @@ class ConnectionManager:
 
     async def response_fs(self, ws):
         _form = self.client[ws]
-
         token, roompasshash = parse_auth_context(_form["token"], _form["roomKey"])
         if roompasshash == "Timeout":
             return
@@ -308,7 +288,6 @@ class ConnectionManager:
                     {c.key: getattr(chat, c.key) for c in chat.__mapper__.column_attrs}
                     for chat in chats
                 ]
-                _room = {c.name: getattr(room, c.name) for c in room.__table__.columns}
                 await ws.send_json({"message": "processed", "chats": _chats})
             if "search" in _form:
                 stmt = (

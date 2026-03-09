@@ -441,10 +441,10 @@ export const AppWidgetHead = () => {
         }
         return (
             <div>
-                {roomKeyModal()}
                 {accountLoginModal()}
                 {accountSignupModal()}
                 {accountConfigModal()}
+                {roomKeyModal()}
                 <div className="d-flex flex-column">
                     {_userNameTitle()}
                     {user.includes("GUEST") || user.includes("HOST") || user.includes("ANONYMOUS") ?
