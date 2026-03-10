@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 
 import { Unixtime2String } from "../../components/util";
 import { HIModal, CIModal } from "../../components/imodals";
-import { accountSetState, tptefStartTable } from "../../components/slice";
+import { tptefStartTable } from "../../components/slice";
 import { useAppSelector, useAppDispatch } from "../../components/store";
 import { CTable } from "./components/chat";
 import "../../stylecheets/style.sass";
@@ -16,6 +16,7 @@ export const AppMain = () => {
     const xhrTimeout = 3000
     const [tmpRoomKey, setTmpRoomKey] = useState("")
     const [tmpRoom, setTmpRoom] = useState("")
+    const [tmpSearch, setTmpSearch] = useState("")
     const [contents, setContents] = useState<any>([])
     const wsRef = useRef<WebSocket | null>(null)
     const [wsReady, setWsReady] = useState(false)
@@ -46,10 +47,11 @@ export const AppMain = () => {
         }
         wsRef.current.addEventListener("message", onMessage)
         sendSearch()
+        setTmpRoomKey(""); setTmpRoom(""); setTmpSearch("");
         return () => { wsRef.current?.removeEventListener("message", onMessage) }
     }, [wsReady, tableStatus, token, roomKey])
 
-    const sendSearch = () => { wsRef.current?.send(JSON.stringify({ "token": token, roomKey: roomKey, "search": tmpRoom })) }
+    const sendSearch = () => { wsRef.current?.send(JSON.stringify({ "token": token, roomKey: roomKey, "search": tmpSearch })) }
 
     // fetchAPI
     const createRoom = () => {
@@ -91,7 +93,7 @@ export const AppMain = () => {
                                 </div>
                                 <div className="modal-body row">
                                     <div className="input-group m-1 col-12">
-                                        <span className="input-group-text">部屋名</span>
+                                        <span className="input-group-text">Roomname</span>
                                         <input type="text" className="form-control" placeholder="Roomname" aria-label="room"
                                             value={tmpRoom} onChange={(evt) => { setTmpRoom(evt.target.value) }} />
                                     </div>
@@ -100,12 +102,18 @@ export const AppMain = () => {
                                         <input type="password" className="form-control" placeholder="Password" aria-label="pass"
                                             value={tmpRoomKey} onChange={(evt) => { setTmpRoomKey(evt.target.value) }} />
                                     </div>
+                                    <div className="m-1 col-12">
+                                        {tmpRoom == "" ?
+                                            <div className="text-warning-emphasis">
+                                                Plz Input Roomname
+                                            </div> : <div />
+                                        }
+                                    </div>
                                 </div>
                                 <div className="modal-footer">
                                     <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                    {tmpRoom == "" || token == "" ?
-                                        <button type="button" className="btn btn-outline-info"
-                                            onClick={() => { HIModal("部屋名が未入力") }}>
+                                    {tmpRoom == "" ?
+                                        <button type="button" className="btn btn-outline-primary" data-bs-dismiss="modal" disabled>
                                             <i className="fa-solid fa-hammer mx-1" style={{ pointerEvents: "none" }} />作成
                                         </button> :
                                         <div>
@@ -115,10 +123,7 @@ export const AppMain = () => {
                                                     <i className="fa-solid fa-hammer mx-1" style={{ pointerEvents: "none" }} />作成
                                                 </button> :
                                                 <button type="button" className="btn btn-outline-warning" data-bs-dismiss="modal"
-                                                    onClick={() => {
-                                                        dispatch(accountSetState({ "roomKey": tmpRoomKey }))
-                                                        createRoom()
-                                                    }}>
+                                                    onClick={() => { createRoom() }}>
                                                     <i className="fa-solid fa-key mx-1" />作成
                                                 </button>}
                                         </div>
@@ -138,21 +143,15 @@ export const AppMain = () => {
                         onClick={() => { sendSearch() }}>
                         <i className="fa-solid fa-magnifying-glass mx-1" style={{ pointerEvents: "none" }} />
                     </button>
-                    <input className="flex-fill form-control form-control-lg" type="text" placeholder="部屋名検索" value={tmpRoom}
-                        onChange={(evt) => { setTmpRoom(evt.target.value) }}
+                    <input className="flex-fill form-control form-control-lg" type="text" placeholder="部屋名検索" value={tmpSearch}
+                        onChange={(evt) => { setTmpSearch(evt.target.value) }}
                         onKeyDown={(evt) => { if (evt.key === "Enter") { evt.preventDefault(); sendSearch(); } }}
                     />
-                    {token == "" ?
-                        <button className="btn btn-outline-info btn-lg" type="button"
-                            onClick={() => { HIModal("ログインが必要") }}>
-                            <i className="fa-solid fa-circle-info mx-1" style={{ pointerEvents: "none" }} />
-                            部屋作成
-                        </button> :
-                        <button className="btn btn-outline-primary btn-lg" type="button"
-                            onClick={() => { setTmpRoomKey(""); setTmpRoom(""); $("#roomCreateModal").modal("show") }}>
-                            <i className="fa-solid fa-hammer mx-1" style={{ pointerEvents: "none" }} />
-                            部屋作成
-                        </button>}
+                    <button className="btn btn-outline-primary btn-lg" type="button"
+                        onClick={() => { setTmpRoomKey(""); setTmpRoom(""); $("#roomCreateModal").modal("show") }}>
+                        <i className="fa-solid fa-hammer mx-1" style={{ pointerEvents: "none" }} />
+                        部屋作成
+                    </button>
                 </div>
             </div>)
     }

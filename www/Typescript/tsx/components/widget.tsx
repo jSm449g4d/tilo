@@ -95,7 +95,7 @@ export const AppWidgetHead = () => {
         )) { CIModal("userName_reserved", tmpUser + ": is RESERVED_NAME"); _formInit(); return; };
         postJson("signup", {}, (resJ) => {
             dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"], mail: resJ["mail"] }));
-            CIModal("Success", "Create account")
+            HIModal("Success", "Create account")
             _formInit();
         });
     }
@@ -103,14 +103,14 @@ export const AppWidgetHead = () => {
     const _accountChange = () => {
         postJson("account_change", {}, (resJ) => {
             dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"], mail: resJ["mail"] }));
-            CIModal("Success", "Change account setting")
+            HIModal("Success", "Change account setting")
             _formInit();
         });
     }
     const _accountDelete = () => {
         postJson("account_delete", {}, () => {
             _logoutInit();
-            CIModal("Success", "Deleted your account")
+            HIModal("Success", "Deleted your account")
             _formInit();
         });
     };
