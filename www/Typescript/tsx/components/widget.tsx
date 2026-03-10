@@ -54,7 +54,7 @@ export const AppWidgetHead = () => {
                 switch (resJ["message"]) {
                     case "processed": { onProcessed?.(resJ); break; }
                     default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
+                        if ("text" in resJ) { CIModal(resJ["message"], resJ["text"]); break; }
                         break;
                     }
                 }
@@ -75,7 +75,7 @@ export const AppWidgetHead = () => {
                 switch (resJ["message"]) {
                     case "processed": { dispatch(accountSetState({ token: resJ["token"], id: resJ["id"], user: resJ["user"], mail: resJ["mail"] })); break; }
                     default: {
-                        if ("text" in resJ) CIModal(resJ["text"]);
+                        if ("text" in resJ) { CIModal(resJ["message"], resJ["text"]); break; }
                         break;
                     }
                 }

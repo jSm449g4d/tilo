@@ -66,7 +66,7 @@ export const CTable = ({ wsRef, wsReady }: any) => {
             .then((resJ: any) => {
                 switch (resJ["message"]) {
                     case "processed": { onProcessed?.(resJ); break; }
-                    default: { if ("text" in resJ) CIModal(resJ["text"]); break; }
+                    default: { if ("text" in resJ) CIModal(resJ["message"], resJ["text"]); break; }
                 }
             })
             .catch((e) => CIModal("fetchAPI_Error", e.message));
@@ -90,7 +90,7 @@ export const CTable = ({ wsRef, wsReady }: any) => {
             .then((resJ: any) => {
                 switch (resJ["message"]) {
                     case "processed": { break; }
-                    default: { if ("text" in resJ) CIModal(resJ["text"]); break; }
+                    default: { if ("text" in resJ) CIModal(resJ["message"], resJ["text"]); break; }
                 }
             })
             .catch((e) => CIModal("fetchAPI_Error", e.message));

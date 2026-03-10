@@ -1,4 +1,4 @@
-import hashlib
+from argon2 import PasswordHasher
 import json
 import os
 import re
@@ -19,6 +19,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.orm import Session as SASession
 
 FUNC_NAME = "tptef"
+ph = PasswordHasher()
 
 
 # Processing when accessing directly with GET
@@ -105,7 +106,7 @@ def parse_auth_context(_token_i="", _room_key_i=""):
             raise Exception("Timeout")
         _roompasshash = ""
         if _room_key_i != "":
-            _roompasshash = hashlib.sha256(_room_key_i.encode()).hexdigest()
+            _roompasshash = ph.hash(_room_key_i)
         return _token, _roompasshash
     except Exception as e:
         return {}, str(e)
@@ -144,11 +145,14 @@ async def show(request: Request):
             ).scalar_one_or_none()
             if _room is not None:
                 return {"message": "alreadyExisted", "text": "既存の部屋名"}
+            _passhash = _dataDict["roomKeyhole"]
+            if _passhash != "":
+                _passhash = ph.hash(_dataDict["roomKeyhole"])
             _room = TptefRoom(
                 user=token["user"],
                 userid=token["id"],
                 name=_room_name,
-                passhash=roompasshash,
+                passhash=_passhash,
                 timestamp=int(time.time()),
             )
             session.add(_room)

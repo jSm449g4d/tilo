@@ -120,7 +120,7 @@ async def show(request: Request):
             _dataDict.update(json.loads(form["signup"]))
             _username = safe_string(_dataDict["user"])
             if session.query(Account).filter_by(user=_username).first() is not None:
-                return {"message": "alreadyExist", "text": _username}
+                return {"message": "alreadyExist", "text": "username:" + _username}
             if any(reserved in _username for reserved in RESERVED_NAME):
                 return {"message": "reservedName", "text": str(RESERVED_NAME)}
             if _username == "guest":

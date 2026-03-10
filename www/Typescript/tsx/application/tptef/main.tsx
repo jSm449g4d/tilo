@@ -14,7 +14,7 @@ export const AppMain = () => {
     const dispatch = useAppDispatch()
 
     const xhrTimeout = 3000
-    const [tmpRoomKey, setTmpRoomKey] = useState("")
+    const [tmpRoomKeyhole, setTmpRoomKeyhole] = useState("")
     const [tmpRoom, setTmpRoom] = useState("")
     const [tmpSearch, setTmpSearch] = useState("")
     const [contents, setContents] = useState<any>([])
@@ -47,7 +47,7 @@ export const AppMain = () => {
         }
         wsRef.current.addEventListener("message", onMessage)
         sendSearch()
-        setTmpRoomKey(""); setTmpRoom(""); setTmpSearch("");
+        setTmpRoomKeyhole(""); setTmpRoom(""); setTmpSearch("");
         return () => { wsRef.current?.removeEventListener("message", onMessage) }
     }, [wsReady, tableStatus, token, roomKey])
 
@@ -57,7 +57,7 @@ export const AppMain = () => {
     const createRoom = () => {
         const formData = new FormData()
         formData.append("info", JSON.stringify({ "token": token, roomKey: roomKey }))
-        formData.append("create", JSON.stringify({ "roomName": tmpRoom, "roomKey": tmpRoomKey }))
+        formData.append("create", JSON.stringify({ "roomName": tmpRoom, "roomKeyhole": tmpRoomKeyhole }))
         fetch(new Request("/tptef/main.py", {
             method: "POST",
             body: formData,
@@ -70,12 +70,11 @@ export const AppMain = () => {
                         dispatch(tptefStartTable({ tableStatus: "CTable", room: resJ["room"] }))
                         break
                     default:
-                        if ("text" in resJ) CIModal("Exception", resJ["text"])
-                        break
+                        if ("text" in resJ) { CIModal(resJ["message"], resJ["text"]); break; }
                 }
             })
             .catch(error => { CIModal("fetchAPI_Error", error.message) })
-        setTmpRoomKey("")
+        setTmpRoomKeyhole("")
         setTmpRoom("")
     }
 
@@ -100,7 +99,7 @@ export const AppMain = () => {
                                     <div className="input-group m-1 col-12">
                                         <span className="input-group-text">Pass</span>
                                         <input type="password" className="form-control" placeholder="Password" aria-label="pass"
-                                            value={tmpRoomKey} onChange={(evt) => { setTmpRoomKey(evt.target.value) }} />
+                                            value={tmpRoomKeyhole} onChange={(evt) => { setTmpRoomKeyhole(evt.target.value) }} />
                                     </div>
                                     <div className="m-1 col-12">
                                         {tmpRoom == "" ?
@@ -117,7 +116,7 @@ export const AppMain = () => {
                                             <i className="fa-solid fa-hammer mx-1" style={{ pointerEvents: "none" }} />作成
                                         </button> :
                                         <div>
-                                            {tmpRoomKey == "" ?
+                                            {tmpRoomKeyhole == "" ?
                                                 <button type="button" className="btn btn-outline-primary" data-bs-dismiss="modal"
                                                     onClick={() => createRoom()}>
                                                     <i className="fa-solid fa-hammer mx-1" style={{ pointerEvents: "none" }} />作成
@@ -148,7 +147,7 @@ export const AppMain = () => {
                         onKeyDown={(evt) => { if (evt.key === "Enter") { evt.preventDefault(); sendSearch(); } }}
                     />
                     <button className="btn btn-outline-primary btn-lg" type="button"
-                        onClick={() => { setTmpRoomKey(""); setTmpRoom(""); $("#roomCreateModal").modal("show") }}>
+                        onClick={() => { setTmpRoomKeyhole(""); setTmpRoom(""); $("#roomCreateModal").modal("show") }}>
                         <i className="fa-solid fa-hammer mx-1" style={{ pointerEvents: "none" }} />
                         部屋作成
                     </button>
