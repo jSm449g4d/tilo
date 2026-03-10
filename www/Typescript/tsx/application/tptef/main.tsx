@@ -42,14 +42,13 @@ export const AppMain = () => {
 
         const onMessage = (e: MessageEvent) => {
             const msg = JSON.parse(e.data)
-            if (!Array.isArray(msg["rooms"])) return
-            if (msg.message == "processed") { sortSetContentsRev(msg["rooms"]) }
+            if (msg.message == "processed") { if (Array.isArray(msg["rooms"])) sortSetContentsRev(msg["rooms"]) }
         }
         wsRef.current.addEventListener("message", onMessage)
         sendSearch()
         setTmpRoomKeyhole(""); setTmpRoom(""); setTmpSearch("");
         return () => { wsRef.current?.removeEventListener("message", onMessage) }
-    }, [wsReady, tableStatus, token, roomKey])
+    }, [wsReady, tableStatus, token])
 
     const sendSearch = () => { wsRef.current?.send(JSON.stringify({ "token": token, roomKey: roomKey, "search": tmpSearch })) }
 

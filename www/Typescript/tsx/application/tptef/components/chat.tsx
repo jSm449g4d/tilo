@@ -31,7 +31,7 @@ export const CTable = ({ wsRef, wsReady }: any) => {
     useEffect(() => {
         setTmpText("")
         setTmpAttachment(null)
-    }, [reloadFlag, userId])
+    }, [reloadFlag, userId, roomKey])
 
     useEffect(() => {
         const sortSetContents = (_contents: any = []) => {
@@ -45,12 +45,15 @@ export const CTable = ({ wsRef, wsReady }: any) => {
         wsRef.current.send(JSON.stringify(formData))
         const onMessage = (e: MessageEvent) => {
             const msg = JSON.parse(e.data)
-            if (!Array.isArray(msg["chats"])) return
-            if (msg.message == "processed") { sortSetContents(msg["chats"]) }
+            if (msg.message == "processed") { if (Array.isArray(msg["chats"])) sortSetContents(msg["chats"]) }
+            if (msg.message == "wrongPass") {
+                dispatch(tptefStartTable({ tableStatus: "RTable" }))
+                $('#roomKeyModal').modal('show')
+            }
         }
         wsRef.current.addEventListener("message", onMessage)
         return () => { wsRef.current?.removeEventListener("message", onMessage) }
-    }, [wsReady, tableStatus, token, roomKey])
+    }, [wsReady, tableStatus, token])
 
     // fetchAPI
     const postJson = (key: string, body: object, onProcessed?: (resJ: any) => void,) => {

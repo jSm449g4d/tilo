@@ -67,16 +67,16 @@ class Account(Base):
 Base.metadata.create_all(engine)
 
 
-def safe_string(s, max_len=500, anti_directory_traversal=True):
-    s = unicodedata.normalize("NFKC", str(s))
-    if anti_directory_traversal:
-        s = re.sub(r"\[.*\]|<.*>|/", "", s)
-    s = re.sub(r"\\|;|\'|\"", "", s)
-    s = re.sub(r"\s+", " ", s).strip()
-    return s[:max_len]
+def safe_string(_s, _max=500, _anti_directory_traversal=True) -> str:
+    _s = unicodedata.normalize("NFKC", str(_s))
+    if _anti_directory_traversal:
+        _s = re.sub(r"\[.*\]|<.*>|/", "", _s)
+    _s = re.sub(r"\\|;|\'|\"", "", _s)
+    _s = re.sub(r"\s+", " ", _s).strip()
+    return _s[:_max]
 
 
-def verify_pass(_hash, _pass):
+def verify_pass(_hash, _pass) -> bool:
     if _hash == "":
         return True
     try:
@@ -87,7 +87,7 @@ def verify_pass(_hash, _pass):
     return False
 
 
-def pass2hash(_hash):
+def pass2hash(_hash) -> str:
     if _hash == "":
         return ""
     return ph.hash(_hash)

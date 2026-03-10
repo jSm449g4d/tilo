@@ -88,7 +88,7 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base.metadata.create_all(engine)
 
 
-def safe_string(_s, _max=500, _anti_directory_traversal=True):
+def safe_string(_s, _max=500, _anti_directory_traversal=True) -> str:
     _s = unicodedata.normalize("NFKC", str(_s))
     if _anti_directory_traversal:
         _s = re.sub(r"\[.*\]|<.*>|/", "", _s)
@@ -97,7 +97,7 @@ def safe_string(_s, _max=500, _anti_directory_traversal=True):
     return _s[:_max]
 
 
-def verify_pass(_hash, _pass):
+def verify_pass(_hash, _pass) -> bool:
     if _hash == "":
         return True
     try:
@@ -108,31 +108,28 @@ def verify_pass(_hash, _pass):
     return False
 
 
-def pass2hash(_hash):
+def pass2hash(_hash) -> str:
     if _hash == "":
         return ""
     return ph.hash(_hash)
 
 
-def parse_auth_context(_token_i="", _room_key_i=""):
-    if _token_i == "":
-        return {}, ""
+def parse_auth_context(_token_i=""):
     try:
+        if _token_i == "":
+            raise Exception("noToken")
         _token = jwt.decode(_token_i, pyJWT_pass, algorithms=["HS256"])
         if _token["timestamp"] + pyJWT_timeout < int(time.time()):
             raise Exception("Timeout")
-        _roompasshash = ""
-        if _room_key_i != "":
-            _roompasshash = ph.hash(_room_key_i)
-        return _token, _roompasshash
+        return _token, ""
     except Exception as e:
         return {}, str(e)
 
 
-def check_roomkey(_room: TptefRoom, _user_id: int, _roompasshash: str):
-    if _room.userid == _user_id or _room.passhash == "":
+def check_roomkey(_room: TptefRoom, _user_id: int, _room_key: str):
+    if _room.userid == _user_id:
         return True
-    return _room.passhash == _roompasshash
+    return verify_pass(_room.passhash, _room_key)
 
 
 async def show(request: Request):
@@ -146,11 +143,9 @@ async def show(request: Request):
     if "info" not in form:
         return {"message": "notEnoughForm(info)"}
     _dataDict = json.loads(form["info"])
-    token, roompasshash = parse_auth_context(_dataDict["token"], _dataDict["roomKey"])
-    if roompasshash == "Timeout":
-        return {"message": "tokenTimeout", "text": "JWT outDated"}
-    if token == {}:
-        return {"message": "tokenNothing", "text": "JWT is not exist"}
+    token, _token_error = parse_auth_context(_dataDict["token"])
+    if _token_error != "":
+        return {"message": "JWT_Error", "text": _token_error}
     with Session() as session:
         if "create" in form:
             _dataDict.update(json.loads(form["create"]))
@@ -162,14 +157,11 @@ async def show(request: Request):
             ).scalar_one_or_none()
             if _room is not None:
                 return {"message": "alreadyExisted", "text": "既存の部屋名"}
-            _passhash = _dataDict["roomKeyhole"]
-            if _passhash != "":
-                _passhash = ph.hash(_dataDict["roomKeyhole"])
             _room = TptefRoom(
                 user=token["user"],
                 userid=token["id"],
                 name=_room_name,
-                passhash=_passhash,
+                passhash=pass2hash(_dataDict["roomKeyhole"]),
                 timestamp=int(time.time()),
             )
             session.add(_room)
@@ -184,10 +176,8 @@ async def show(request: Request):
 
         room = session.get(TptefRoom, _dataDict["roomid"])
         if room is None:
-            session.info["search_plz"] = True
-            session.commit()
             return {"message": "notExist", "text": "the room is not exist"}
-        if not check_roomkey(room, token["id"], roompasshash):
+        if not check_roomkey(room, token["id"], _dataDict["roomKey"]):
             return {"message": "wrongPass", "text": "Access Denied"}
 
         if "remark" in form:
@@ -296,17 +286,18 @@ class ConnectionManager:
 
     async def response_fs(self, ws):
         _form = self.client[ws]
-        token, roompasshash = parse_auth_context(_form["token"], _form["roomKey"])
-        if roompasshash == "Timeout":
-            return
-        if token == {}:
-            return
+        token, _token_error = parse_auth_context(_form["token"])
+        if _token_error != "":
+            return {}
         with Session() as session:
             if "fetch" in _form:
                 room = session.get(TptefRoom, _form["roomid"])
                 if room is None:
                     return
-                if not check_roomkey(room, token["id"], roompasshash):
+                if not check_roomkey(room, token["id"], _form["roomKey"]):
+                    await ws.send_json(
+                        {"message": "wrongPass", "text": "Access Denied"}
+                    )
                     return
                 stmt = select(TptefChat).where(TptefChat.roomid == room.id)
                 chats = session.execute(stmt).scalars().all()
@@ -316,16 +307,12 @@ class ConnectionManager:
                 ]
                 await ws.send_json({"message": "processed", "chats": _chats})
             if "search" in _form:
+                _frest = (
+                    (TptefRoom.userid == token["id"]) | (TptefRoom.passhash == "")
+                ) & (TptefRoom.name.ilike(f"%{_form['search']}%"))
                 stmt = (
                     select(TptefRoom)
-                    .where(
-                        (
-                            (TptefRoom.userid == token["id"])
-                            | (TptefRoom.passhash == "")
-                            | (TptefRoom.passhash == roompasshash)
-                        )
-                        & (TptefRoom.name.ilike(f"%{_form['search']}%"))
-                    )
+                    .where(_frest | (TptefRoom.name == _form["search"]))
                     .order_by(TptefRoom.timestamp.desc())
                     .limit(100)
                 )
