@@ -49,12 +49,9 @@ keys = {}
 if os.path.exists(key_dir):
     with open(key_dir) as f:
         keys = json.load(f)
-        if "db" in keys:
-            db_dir = keys["db"]
-        if "pyJWT_pass" in keys:
-            pyJWT_pass = keys["pyJWT_pass"]
-        if "pyJWT_timeout" in keys:
-            pyJWT_timeout = keys["pyJWT_timeout"]
+    db_dir = keys.get("db", db_dir)
+    pyJWT_pass = keys.get("pyJWT_pass", pyJWT_pass)
+    pyJWT_timeout = keys.get("pyJWT_timeout", pyJWT_timeout)
 
 Base = declarative_base()
 
@@ -216,7 +213,8 @@ async def show(request: Request):
                 return FileResponse(
                     _target_file,
                     headers={
-                        "Content-Disposition": f"{"attachment"}; filename*=UTF-8''{quote(_chat.filename)}"
+                        "Content-Disposition": "attachment; filename*=UTF-8''"
+                        + quote(_chat.filename)
                     },
                 )
             return {"message": "notExist", "text": "ファイル不明"}
@@ -288,7 +286,8 @@ class ConnectionManager:
         _form = self.client[ws]
         token, _token_error = parse_auth_context(_form["token"])
         if _token_error != "":
-            return {}
+            await ws.send_json({"message": "JWT_Error", "text": _token_error})
+            return
         with Session() as session:
             if "fetch" in _form:
                 room = session.get(TptefRoom, _form["roomid"])

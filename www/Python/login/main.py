@@ -39,6 +39,7 @@ key_dir = "./keys/keys.json"
 db_dir = "./tmp/sqlite.db"
 pyJWT_pass = "test"
 pyJWT_timeout = 3600
+keys = {}
 if os.path.exists(key_dir):
     with open(key_dir) as f:
         keys = json.load(f)
@@ -104,9 +105,12 @@ async def show(request: Request):
     _dataDict = json.loads(form["info"])
     token = ""
     if _dataDict["token"] != "":
-        token = jwt.decode(_dataDict["token"], pyJWT_pass, algorithms=["HS256"])
-        if token["timestamp"] + pyJWT_timeout < int(time.time()):
-            return {"message": "tokenTimeout", "text": "JWT outDated"}
+        try:
+            token = jwt.decode(_dataDict["token"], pyJWT_pass, algorithms=["HS256"])
+            if token["timestamp"] + pyJWT_timeout < int(time.time()):
+                return {"message": "tokenTimeout", "text": "JWT outDated"}
+        except Exception as e:
+            return {"message": "JWT_Error", "text": str(e)}
     with SessionLocal() as session:
         if "login" in form:
             _dataDict.update(json.loads(form["login"]))
@@ -114,7 +118,7 @@ async def show(request: Request):
             account = session.query(Account).filter_by(user=_username).first()
             if account is None:
                 return {"message": "notExist", "text": "Account is not exist"}
-            if verify_pass(account.passhash, _dataDict["pass"]) == False:
+            if not verify_pass(account.passhash, _dataDict["pass"]):
                 return {"message": "wrongPass", "text": "Access Denied"}
             token = jwt.encode(
                 {"id": account.id, "user": account.user, "timestamp": int(time.time())},
@@ -170,6 +174,8 @@ async def show(request: Request):
         if "account_change" in form:
             _dataDict.update(json.loads(form["account_change"]))
             _username = safe_string(_dataDict["user"])
+            if _username != "" and any(reserved in _username for reserved in RESERVED_NAME):
+                return {"message": "reservedName", "text": str(RESERVED_NAME)}
             if (
                 session.query(Account)
                 .filter(Account.user == _username, Account.id != token["id"])
