@@ -97,6 +97,23 @@ def safe_string(_s, _max=500, _anti_directory_traversal=True):
     return _s[:_max]
 
 
+def verify_pass(_hash, _pass):
+    if _hash == "":
+        return True
+    try:
+        if ph.verify(_hash, _pass):
+            return True
+    except:
+        return False
+    return False
+
+
+def pass2hash(_hash):
+    if _hash == "":
+        return ""
+    return ph.hash(_hash)
+
+
 def parse_auth_context(_token_i="", _room_key_i=""):
     if _token_i == "":
         return {}, ""

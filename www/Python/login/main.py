@@ -1,5 +1,5 @@
+from argon2 import PasswordHasher
 import json
-import hashlib
 import jwt
 import time
 import sys
@@ -15,6 +15,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 FUNC_NAME = "login"
 RESERVED_NAME = ["GUEST", "HOST", "ANONYMOUS"]
+ph = PasswordHasher()
 
 
 # Processing when accessing directly with GET
@@ -75,6 +76,23 @@ def safe_string(s, max_len=500, anti_directory_traversal=True):
     return s[:max_len]
 
 
+def verify_pass(_hash, _pass):
+    if _hash == "":
+        return True
+    try:
+        if ph.verify(_hash, _pass):
+            return True
+    except:
+        return False
+    return False
+
+
+def pass2hash(_hash):
+    if _hash == "":
+        return ""
+    return ph.hash(_hash)
+
+
 async def show(request: Request):
     if request.method == "GET":
         return get_response()
@@ -89,9 +107,6 @@ async def show(request: Request):
         token = jwt.decode(_dataDict["token"], pyJWT_pass, algorithms=["HS256"])
         if token["timestamp"] + pyJWT_timeout < int(time.time()):
             return {"message": "tokenTimeout", "text": "JWT outDated"}
-    passhash = ""
-    if _dataDict["pass"] != "":
-        passhash = hashlib.sha256(_dataDict["pass"].encode()).hexdigest()
     with SessionLocal() as session:
         if "login" in form:
             _dataDict.update(json.loads(form["login"]))
@@ -99,7 +114,7 @@ async def show(request: Request):
             account = session.query(Account).filter_by(user=_username).first()
             if account is None:
                 return {"message": "notExist", "text": "Account is not exist"}
-            if account.passhash != passhash:
+            if verify_pass(account.passhash, _dataDict["pass"]) == False:
                 return {"message": "wrongPass", "text": "Access Denied"}
             token = jwt.encode(
                 {"id": account.id, "user": account.user, "timestamp": int(time.time())},
@@ -123,13 +138,13 @@ async def show(request: Request):
                 return {"message": "alreadyExist", "text": "username:" + _username}
             if any(reserved in _username for reserved in RESERVED_NAME):
                 return {"message": "reservedName", "text": str(RESERVED_NAME)}
+            _pass = _dataDict["pass"]
             if _username == "guest":
                 _username = "GUEST-" + str(int(time.time() * 1000))
-                passhash = ""
-
+                _pass = ""
             account = Account(
                 user=_username,
-                passhash=passhash,
+                passhash=pass2hash(_pass),
                 timestamp=int(time.time()),
                 lastlogin=int(time.time()),
                 mail="",
@@ -161,15 +176,15 @@ async def show(request: Request):
                 .first()
                 is not None
             ):
-                return {"message": "alreadyExist", "text": "既存の名前"}
+                return {"message": "alreadyExist", "text": "username:" + _username}
             account = session.get(Account, token["id"])
             if account is None:
                 return {"message": "notExist", "text": "Account is not exist"}
             account.user = account.user if _username == "" else _username
-            account.passhash = account.passhash if _dataDict["pass"] == "" else passhash
-            account.mail = (
-                account.mail if _dataDict["mail"] == "" else _dataDict["mail"]
-            )
+            if _dataDict["pass"] != "":
+                account.passhash = pass2hash(_dataDict["pass"])
+            if _dataDict["mail"] != "":
+                account.mail = _dataDict["mail"]
             account.lastlogin = int(time.time())
             session.commit()
             token = jwt.encode(
@@ -189,7 +204,7 @@ async def show(request: Request):
             _dataDict.update(json.loads(form["account_delete"]))
             account = session.get(Account, token["id"])
             if account is None:
-                return {"message": "notExist", "text": "アカウントが存在しない"}
+                return {"message": "notExist", "text": "Account is not Exist"}
             session.delete(account)
             session.commit()
             return {"message": "processed"}
