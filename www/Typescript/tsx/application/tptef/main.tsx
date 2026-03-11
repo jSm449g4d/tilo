@@ -8,18 +8,19 @@ import { CTable } from "./components/chat";
 import "../../stylecheets/style.sass";
 
 export const AppMain = () => {
-    const token = useAppSelector((state) => state.account.token)
-    const roomKey = useAppSelector((state) => state.account.roomKey)
-    const tableStatus = useAppSelector((state) => state.tptef.tableStatus)
-    const dispatch = useAppDispatch()
-
-    const xhrTimeout = 3000
     const [tmpRoomKeyhole, setTmpRoomKeyhole] = useState("")
     const [tmpRoom, setTmpRoom] = useState("")
     const [tmpSearch, setTmpSearch] = useState("")
     const [contents, setContents] = useState<any>([])
     const wsRef = useRef<WebSocket | null>(null)
     const [wsReady, setWsReady] = useState(false)
+    const token = useAppSelector((state) => state.account.token)
+    const roomKey = useAppSelector((state) => state.account.roomKey)
+    const reloadFlag = useAppSelector((state) => state.tptef.reloadFlag)
+    const tableStatus = useAppSelector((state) => state.tptef.tableStatus)
+    const dispatch = useAppDispatch()
+    const xhrTimeout = 3000
+
 
     useEffect(() => {
         dispatch(tptefStartTable({ "tableStatus": "RTable" }))
@@ -30,6 +31,8 @@ export const AppMain = () => {
         ws.onclose = () => setWsReady(false)
         return () => { ws.close(); if (wsRef.current === ws) wsRef.current = null; }
     }, [dispatch])
+
+    useEffect(() => { setTmpRoomKeyhole(""); setTmpRoom(""); setTmpSearch(""); }, [reloadFlag])
 
     useEffect(() => {
         const sortSetContentsRev = (_contents: any) => {
@@ -46,9 +49,9 @@ export const AppMain = () => {
         }
         wsRef.current.addEventListener("message", onMessage)
         sendSearch()
-        setTmpRoomKeyhole(""); setTmpRoom(""); setTmpSearch("");
         return () => { wsRef.current?.removeEventListener("message", onMessage) }
-    }, [wsReady, tableStatus, token])
+    }, [wsReady, reloadFlag, token])
+
 
     const sendSearch = () => { wsRef.current?.send(JSON.stringify({ "token": token, roomKey: roomKey, "search": tmpSearch })) }
 
@@ -171,7 +174,7 @@ export const AppMain = () => {
 
         const _tmpRecord = []
         for (let i = 0; i < contents.length; i++) {
-            if (contents[i]["name"].indexOf(tmpRoom) == -1) continue
+            if (contents[i]["name"].indexOf(tmpSearch) == -1) continue
             const _tmpData = []
             let _style = { background: "linear-gradient(rgba(60,60,60,0), rgba(60,60,60,0.2))" }
             if (contents[i]["passhash"] != "") {

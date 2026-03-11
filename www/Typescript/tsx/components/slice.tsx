@@ -30,18 +30,14 @@ export const tptefSlice = createSlice({
     room: { "id": -1, "user": "", "userid": -1, "room": "", "timestamp": 0, "passhash": "" },
   },
   reducers: {
-    tptefSetState: (state, action: { payload: any }) => {
-      if ("tableStatus" in action.payload) state.tableStatus = action.payload.tableStatus
-      if ("room" in action.payload) state.room = action.payload.room
-    },
     tptefStartTable: (state, action: { payload: any }) => {
-      if ("room" in action.payload) state.room = action.payload.room
       if ("tableStatus" in action.payload) state.tableStatus = action.payload.tableStatus
+      if ("room" in action.payload) state.room = action.payload.room
       state.reloadFlag++
     },
   },
 })
-export const { tptefSetState, tptefStartTable } = tptefSlice.actions
+export const { tptefStartTable } = tptefSlice.actions
 
 export const tskbSlice = createSlice({
   name: 'tskb',

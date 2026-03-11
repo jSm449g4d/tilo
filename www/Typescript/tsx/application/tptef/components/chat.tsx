@@ -11,8 +11,8 @@ export const CTable = ({ wsRef, wsReady }: any) => {
     const [tmpText, setTmpText] = useState("")
     const [tmpAttachment, setTmpAttachment] = useState<File | null>(null)
     const [contents, setContents] = useState<any>([])
-    const userId = useAppSelector((state) => state.account.id)
     const token = useAppSelector((state) => state.account.token)
+    const userId = useAppSelector((state) => state.account.id)
     const roomKey = useAppSelector((state) => state.account.roomKey)
     const room = useAppSelector((state) => state.tptef.room)
     const reloadFlag = useAppSelector((state) => state.tptef.reloadFlag)
@@ -28,10 +28,7 @@ export const CTable = ({ wsRef, wsReady }: any) => {
         return () => clearInterval(_intervalId)
     }, [])
 
-    useEffect(() => {
-        setTmpText("")
-        setTmpAttachment(null)
-    }, [reloadFlag, userId, roomKey])
+    useEffect(() => { setTmpText(""); setTmpAttachment(null); }, [reloadFlag])
 
     useEffect(() => {
         const sortSetContents = (_contents: any = []) => {
@@ -53,7 +50,7 @@ export const CTable = ({ wsRef, wsReady }: any) => {
         }
         wsRef.current.addEventListener("message", onMessage)
         return () => { wsRef.current?.removeEventListener("message", onMessage) }
-    }, [wsReady, tableStatus, token])
+    }, [wsReady, reloadFlag, token])
 
     // fetchAPI
     const postJson = (key: string, body: object, onProcessed?: (resJ: any) => void,) => {
